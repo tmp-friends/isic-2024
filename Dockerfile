@@ -1,9 +1,7 @@
 FROM nvidia/cuda:12.2.0-runtime-ubuntu20.04 as builder
 
 ARG WORKDIR=/kaggle
-ENV PATH /home/$USERNAME/.local/bin:$PATH
 ENV PYTHONPATH $WORKDIR
-
 WORKDIR $WORKDIR
 
 # @ref: https://qiita.com/naozo-se/items/17cb127fab3783361ca4

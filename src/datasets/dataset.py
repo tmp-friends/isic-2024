@@ -1,4 +1,8 @@
 import random
+import h5py
+from PIL import Image
+from io import BytesIO
+import numpy as np
 from torch.utils.data import Dataset
 import cv2
 
@@ -60,6 +64,33 @@ class ISICDataset(Dataset):
         img_path = self.file_names[index]
         img = cv2.imread(img_path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        target = self.targets[index]
+
+        if self.transforms:
+            img = self.transforms(image=img)["image"]
+
+        return {
+            "image": img,
+            "target": target,
+        }
+
+
+class ISICDataset_for_Test(Dataset):
+    def __init__(self, df, file_hdf, transforms=None):
+        self.df = df
+        self.fp_hdf = h5py.File(file_hdf, mode="r")
+        self.isic_ids = df["isic_id"].values
+        self.targets = df["target"].values
+
+        self.transforms = transforms
+
+    def __len__(self):
+        return len(self.isic_ids)
+
+    def __getitem__(self, index):
+        isic_id = self.isic_ids[index]
+        img = np.array(Image.open(BytesIO(self.fp_hdf[isic_id][()])))
 
         target = self.targets[index]
 

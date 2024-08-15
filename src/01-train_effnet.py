@@ -42,14 +42,6 @@ from src.types.config import TrainEffnetConfig
 from src.datasets.dataset import ISICDataset_for_Train, ISICDataset
 from src.models.isic_model import ISICModel
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s:%(name)s - %(message)s")
-LOGGER = logging.getLogger(Path(__file__).name)
-
-# For descriptive error messages
-os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 
 def prepare_loaders(cfg: TrainEffnetConfig, df: pd.DataFrame) -> tuple[DataLoader, DataLoader]:
     df_train = df[df.kfold != cfg.fold].reset_index(drop=True)
@@ -299,16 +291,13 @@ def valid_one_epoch(
 
         bar.set_postfix(Epoch=epoch, Valid_Loss=epoch_loss, Valid_Auroc=epoch_auroc, LR=optimizer.param_groups[0]["lr"])
 
-    gc.collect()
-
     return epoch_loss, epoch_auroc
 
 
-@hydra.main(config_path="/kaggle/conf", config_name="train_effnet", version_base="1.1")
+@hydra.main(config_path="conf", config_name="train_effnet", version_base="1.1")
 def main(cfg: TrainEffnetConfig):
-
     # Read meta
-    df = pd.read_csv(f"{cfg.dir.data}/train-metadata.csv")
+    df = pd.read_csv(cfg.dir.train_meta_csv)
     LOGGER.info(df)
 
     df_positive = df[df["target"] == 1].reset_index(drop=True)
@@ -318,10 +307,10 @@ def main(cfg: TrainEffnetConfig):
     LOGGER.info(df)
 
     # Read image
-    train_images = sorted(glob.glob(f"{cfg.dir.train_image_data}/*.jpg"))
+    train_images = sorted(glob.glob(f"{cfg.dir.train_image_dir}/*.jpg"))
 
     def _get_train_file_path(image_id):
-        return f"{cfg.dir.train_image_data}/{image_id}.jpg"
+        return f"{cfg.dir.train_image_dir}/{image_id}.jpg"
 
     df["file_path"] = df["isic_id"].apply(_get_train_file_path)
     df = df[df["file_path"].isin(train_images)].reset_index(drop=True)
@@ -391,4 +380,16 @@ def main(cfg: TrainEffnetConfig):
 
 
 if __name__ == "__main__":
+    # Logger
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s:%(name)s - %(message)s")
+    LOGGER = logging.getLogger(Path(__file__).name)
+
+    # For descriptive error messages
+    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+
+    # Set GPU device
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    set_seed()
+
     main()

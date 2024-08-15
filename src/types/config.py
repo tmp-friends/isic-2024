@@ -3,8 +3,12 @@ from dataclasses import dataclass
 
 @dataclass
 class DirConfig:
-    data: str
-    train_image_data: str
+    data_dir: str
+    train_meta_csv: str
+    train_image_dir: str
+    test_meta_csv: str
+    test_image_hdf: str
+    sample_csv: str
 
 
 @dataclass
@@ -22,7 +26,6 @@ class TrainConfig:
 @dataclass
 class TrainEffnetConfig:
     dir: DirConfig
-    seed: int
     n_epochs: int
     img_size: int
     model_name: str
@@ -38,3 +41,11 @@ class TrainEffnetConfig:
     fold: int
     n_folds: int
     n_accumulates: int
+
+
+@dataclass
+class InferEffnetConfig:
+    dir: DirConfig
+    img_size: int
+    model_name: str
+    valid_batch_size: int
