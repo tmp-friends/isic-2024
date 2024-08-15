@@ -29,10 +29,10 @@ from torch.utils.data import DataLoader
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-from src.utils.utils import set_seed
-from src.types.config import InferEffnetConfig
-from src.datasets.dataset import ISICDataset_for_Test
-from src.models.isic_model import ISICModel
+from utils.utils import set_seed
+from conf.type import InferEffnetConfig
+from datasets.dataset import ISICDataset_for_Test
+from models.isic_model import ISICModel
 
 
 def prepare_loaders(cfg: InferEffnetConfig, df: pd.DataFrame) -> DataLoader:
@@ -87,6 +87,7 @@ def run_inference(model: nn.Module, dataloader: DataLoader) -> np.ndarray:
 
 @hydra.main(config_path="conf", config_name="infer_effnet", version_base="1.1")
 def main(cfg: InferEffnetConfig):
+    """ref: https://www.kaggle.com/code/motono0223/isic-script-inference-effnetv1b0-f313ae/notebook"""
     # Read meta
     df = pd.read_csv(cfg.dir.test_meta_csv)
     df["target"] = 0  # dummy
@@ -108,7 +109,7 @@ def main(cfg: InferEffnetConfig):
     preds = run_inference(model=model, dataloader=test_loader)
 
     df_sub["target"] = preds
-    df_sub.to_csv("submission.csv", index=False)
+    df_sub.to_csv("/kaggle/working/submission.csv", index=False)
 
 
 if __name__ == "__main__":

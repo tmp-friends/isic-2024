@@ -37,10 +37,10 @@ from sklearn.model_selection import StratifiedKFold, StratifiedGroupKFold
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-from src.utils.utils import set_seed
-from src.types.config import TrainEffnetConfig
-from src.datasets.dataset import ISICDataset_for_Train, ISICDataset
-from src.models.isic_model import ISICModel
+from utils.utils import set_seed
+from conf.type import TrainEffnetConfig
+from datasets.dataset import ISICDataset_for_Train, ISICDataset
+from models.isic_model import ISICModel
 
 
 def prepare_loaders(cfg: TrainEffnetConfig, df: pd.DataFrame) -> tuple[DataLoader, DataLoader]:
@@ -231,7 +231,7 @@ def train_one_epoch(
 
         outputs = model(images).squeeze()
         loss = criterion(outputs, targets)
-        loss = loss / cfg.n_accumulates
+        loss /= cfg.n_accumulates
 
         loss.backward()
 

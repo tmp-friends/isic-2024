@@ -1,6 +1,17 @@
 ## Doc
 ### EXP
 
+#### 2024/08/15
+
+- effnet_b0を使った手法を実装&sub
+  - LB: 0.132
+  - 参考コードではLB0.144出ているのに低い
+  - seedは合わせているので再現はできているはず
+  - GPUマシンの違い？
+  - 参考
+    - train: https://www.kaggle.com/code/motono0223/isic-pytorch-training-baseline-image-only
+    - infer: https://www.kaggle.com/code/motono0223/isic-pytorch-inference-baseline-image-only
+
 #### 2024/07/31
 
 - `ISIC2024 - Baseline` のパラメータをいじってみる
