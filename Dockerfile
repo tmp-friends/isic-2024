@@ -25,6 +25,8 @@ RUN apt update \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt update \
     && apt install -yq --no-install-recommends \
+    # for open-cv
+    libgl1-mesa-glx \
     curl \
     python3.10 \
     python3-distutils \

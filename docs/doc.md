@@ -55,7 +55,9 @@
       - AutoNN
   - データのかさ増し
     - 皮膚がんのDatasetは他にもありそう
-      - ISICの過去コンペなど
+      - ISICの過去コンペ
+      - https://www.kaggle.com/datasets/kmader/skin-cancer-mnist-ham10000
+      - https://www.kaggle.com/datasets/farjanakabirsamanta/skin-cancer-dataset
 
 ---
 

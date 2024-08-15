@@ -1,0 +1,9 @@
+# 他のファイルからの読み込み
+defaults:
+  - _self_
+  - dir: dir
+
+seed: 42
+img_size: 384
+model_name: "tf_efficientnet_b0_ns"
+valid_batch_size: 64

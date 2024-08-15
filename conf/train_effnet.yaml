@@ -1,0 +1,29 @@
+# ---------- Overriding hydra default configs ----------
+hydra:
+  job:
+    name: train
+    chdir: true
+  run:
+    dir: output/${hydra.job.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+defaults:
+  - _self_
+  - dir: dir
+
+seed: 42
+n_epochs: 50
+img_size: 384
+model_name: "tf_efficientnet_b0_ns"
+# https://www.kaggle.com/models/timm/tf-efficientnet/PyTorch/tf-efficientnet-b0/1
+checkpoint_path: "/kaggle/input/tf-efficientnet/pytorch/tf-efficientnet-b0/1/tf_efficientnet_b0_aa-827b6e33.pth"
+train_batch_size: 32
+valid_batch_size: 64
+scheduler: "CosineAnnealingLR"
+lr: 1e-4
+min_lr: 1e-6
+T_max: 500
+weight_decay: 1e-6
+fold: 0
+n_folds: 5
+n_accumulates: 1
+

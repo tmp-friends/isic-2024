@@ -1,0 +1,2 @@
+data: "/kaggle/input/isic-2024-challenge"
+train_image_data: "/kaggle/input/isic-2024-challenge/train-image/image"

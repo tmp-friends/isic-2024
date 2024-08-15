@@ -4,7 +4,7 @@ defaults:
   - dir: dir
 
 seed: 42
-num_epochs: 10
+n_epochs: 10
 batch_size: 4096
 early_stopping_patience: 20
 lr: 1e-3
