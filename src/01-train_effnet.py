@@ -95,7 +95,7 @@ def prepare_loaders(cfg: TrainEffnetConfig, df: pd.DataFrame) -> tuple[DataLoade
         ),
     }
 
-    train_dataset = ISICDataset_for_Train(df_train, transforms=data_transforms["train"])
+    train_dataset = ISICDataset(df_train, transforms=data_transforms["train"])
     valid_dataset = ISICDataset(df_valid, transforms=data_transforms["valid"])
 
     train_loader = DataLoader(
@@ -300,11 +300,13 @@ def main(cfg: TrainEffnetConfig):
     df = pd.read_csv(cfg.dir.train_meta_csv)
     LOGGER.info(df)
 
-    df_positive = df[df["target"] == 1].reset_index(drop=True)
-    df_negative = df[df["target"] == 0].reset_index(drop=True)
+    # df_positive = df[df["target"] == 1].reset_index(drop=True)
+    # df_negative = df[df["target"] == 0].reset_index(drop=True)
 
-    df = pd.concat([df_positive, df_negative.iloc[: df_positive.shape[0] * 20, :]])  # positive:negative = 1:20
-    LOGGER.info(df)
+    # # positive:negative = 1:20になるよう調整
+    # # positiveが少ない不均衡データなので学習がうまくいくようにする意図
+    # df = pd.concat([df_positive, df_negative.iloc[: df_positive.shape[0] * 20, :]])
+    # LOGGER.info(df)
 
     # Read image
     train_images = sorted(glob.glob(f"{cfg.dir.train_image_dir}/*.jpg"))

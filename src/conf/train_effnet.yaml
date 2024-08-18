@@ -10,13 +10,13 @@ defaults:
   - _self_
   - dir: dir
 
-n_epochs: 50
+n_epochs: 5
 img_size: 384
 model_name: "tf_efficientnet_b0_ns"
 # https://www.kaggle.com/models/timm/tf-efficientnet/PyTorch/tf-efficientnet-b0/1
 checkpoint_path: "/kaggle/input/tf-efficientnet/pytorch/tf-efficientnet-b0/1/tf_efficientnet_b0_aa-827b6e33.pth"
-train_batch_size: 32
-valid_batch_size: 64
+train_batch_size: 64
+valid_batch_size: 128
 scheduler: "CosineAnnealingLR"
 lr: 1e-4
 min_lr: 1e-6

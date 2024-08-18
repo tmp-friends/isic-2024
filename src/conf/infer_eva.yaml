@@ -12,6 +12,7 @@ defaults:
 
 img_size: 336
 model_name: "eva02_small_patch14_336.mim_in22k_ft_in1k"
-valid_batch_size: 64
-best_model_bin: /kaggle/output/train/2024-08-17/14-58-08/AUROC0.5181_Loss0.5046_epoch25.bin
+valid_batch_size: 128
+best_model_bin: /kaggle/output/train/2024-08-18/15-07-27/AUROC0.5493_Loss0.0060_epoch5.bin
+
 
