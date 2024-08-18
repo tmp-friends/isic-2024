@@ -30,12 +30,12 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
 from utils.utils import set_seed
-from conf.type import InferEffnetConfig
+from conf.type import InferTimmModelConfig
 from datasets.dataset import ISICDataset_for_Test
-from models.efficientnet import EfficientNet
+from models.eva import EVA
 
 
-def prepare_loaders(cfg: InferEffnetConfig, df: pd.DataFrame) -> DataLoader:
+def prepare_loaders(cfg: InferTimmModelConfig, df: pd.DataFrame) -> DataLoader:
     data_transforms = {
         "valid": A.Compose(
             [
@@ -85,9 +85,13 @@ def run_inference(model: nn.Module, dataloader: DataLoader) -> np.ndarray:
     return np.concatenate(preds).flatten()
 
 
-@hydra.main(config_path="conf", config_name="infer_effnet", version_base="1.1")
-def main(cfg: InferEffnetConfig):
-    """ref: https://www.kaggle.com/code/motono0223/isic-script-inference-effnetv1b0-f313ae/notebook"""
+@hydra.main(config_path="conf", config_name="infer_eva", version_base="1.1")
+def main(cfg: InferTimmModelConfig):
+    """
+    ref:
+        train: https://www.kaggle.com/code/motono0223/isic-pytorch-training-baseline-eva02
+        infer: https://www.kaggle.com/code/motono0223/isic-inference-eva02-for-training-data
+    """
     # Read meta
     df = pd.read_csv(cfg.dir.test_meta_csv)
     df["target"] = 0  # dummy
@@ -101,7 +105,7 @@ def main(cfg: InferEffnetConfig):
 
     # Def model
     # https://www.kaggle.com/models/timm/tf-efficientnet/pyTorch/tf-efficientnet-b0/1
-    model = EfficientNet(model_name=cfg.model_name, pretrained=False)
+    model = EVA(model_name=cfg.model_name, pretrained=False)
     model.load_state_dict(torch.load(cfg.best_model_bin))
     model.to(device)
 

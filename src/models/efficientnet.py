@@ -21,7 +21,7 @@ class GeM(nn.Module):
         return self.__class__.__name__ + f"(p={self.p.data.tolist()[0]}), eps={str(self.eps)})"
 
 
-class ISICModel(nn.Module):
+class EfficientNet(nn.Module):
     def __init__(
         self,
         model_name,

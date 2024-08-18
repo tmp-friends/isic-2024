@@ -38,12 +38,12 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
 from utils.utils import set_seed
-from conf.type import TrainEffnetConfig
+from conf.type import TrainTimmModelConfig
 from datasets.dataset import ISICDataset_for_Train, ISICDataset
-from models.efficientnet import EfficientNet
+from models.eva import EVA
 
 
-def prepare_loaders(cfg: TrainEffnetConfig, df: pd.DataFrame) -> tuple[DataLoader, DataLoader]:
+def prepare_loaders(cfg: TrainTimmModelConfig, df: pd.DataFrame) -> tuple[DataLoader, DataLoader]:
     df_train = df[df.kfold != cfg.fold].reset_index(drop=True)
     df_valid = df[df.kfold == cfg.fold].reset_index(drop=True)
 
@@ -117,7 +117,7 @@ def prepare_loaders(cfg: TrainEffnetConfig, df: pd.DataFrame) -> tuple[DataLoade
     return train_loader, valid_loader
 
 
-def fetch_scheduler(cfg: TrainEffnetConfig, optimizer: optim) -> lr_scheduler:
+def fetch_scheduler(cfg: TrainTimmModelConfig, optimizer: optim) -> lr_scheduler:
     if cfg.scheduler == "CosineAnnealingLR":
         scheduler = lr_scheduler.CosineAnnealingLR(
             optimizer,
@@ -141,7 +141,7 @@ def criterion(outputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
 
 
 def run_training(
-    cfg: TrainEffnetConfig,
+    cfg: TrainTimmModelConfig,
     model: nn.Module,
     optimizer: optim,
     scheduler: lr_scheduler,
@@ -209,7 +209,7 @@ def run_training(
 
 
 def train_one_epoch(
-    cfg: TrainEffnetConfig,
+    cfg: TrainTimmModelConfig,
     model: nn.Module,
     optimizer: optim,
     scheduler: lr_scheduler,
@@ -294,8 +294,13 @@ def valid_one_epoch(
     return epoch_loss, epoch_auroc
 
 
-@hydra.main(config_path="conf", config_name="train_effnet", version_base="1.1")
-def main(cfg: TrainEffnetConfig):
+@hydra.main(config_path="conf", config_name="train_eva", version_base="1.1")
+def main(cfg: TrainTimmModelConfig):
+    """
+    ref:
+        train: https://www.kaggle.com/code/motono0223/isic-pytorch-training-baseline-eva02
+        infer: https://www.kaggle.com/code/motono0223/isic-inference-eva02-for-training-data
+    """
     # Read meta
     df = pd.read_csv(cfg.dir.train_meta_csv)
     LOGGER.info(df)
@@ -327,8 +332,7 @@ def main(cfg: TrainEffnetConfig):
     train_loader, valid_loader = prepare_loaders(cfg=cfg, df=df)
 
     # Def model
-    # https://www.kaggle.com/models/timm/tf-efficientnet/pyTorch/tf-efficientnet-b0/1
-    model = EfficientNet(model_name=cfg.model_name, checkpoint_path=cfg.checkpoint_path)
+    model = EVA(model_name=cfg.model_name)
     model.to(device)
 
     optimizer = optim.Adam(
