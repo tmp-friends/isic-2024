@@ -1,5 +1,20 @@
 ## Doc
 
+### 2024/08/19
+
+- swin_largeの実装&sub
+  -
+  - pos:neg調整があったほうがLB良い
+
+### 2024/08/18
+
+- pos:negの調整をやめてeffnet_b0, eva02をsub
+  - effnet_b0
+  - eva02
+- 他のversionのeffnetを試す
+  - effnet_b1
+  - effnet_b1
+
 ### 2024/08/17
 
 - EVA02の実装&sub
@@ -14,7 +29,7 @@
   - modelにif文で分岐させるようにする？
 - pos:neg = 1:20にしているのをやめて学習させてみる
   - effnet_b0
-  - AUROC: , LB:
+  - AUROC: 0.5495, LB: 0.139と (AUROC: 0.5177, LB: 0.132に比べて) 向上したb
 
 ### 2024/08/15
 
@@ -145,11 +160,43 @@
   - EDA
 
 #### SIIM-ISIC Melanoma Classification
-画像+メタデータ
 
--
+- 参加記: https://qiita.com/tachyon777/items/05e7d35b7e0b53ef03dd
+  - 不均衡データの扱いが難しい
+    - Triple Stratified KFold: https://www.kaggle.com/code/cdeotte/triple-stratified-kfold-with-tfrecords
+      - 同じ患者の写真枚数の均一化
+      - 陽性例の均一化
+      - 患者ごとの写真枚数の違いを考慮した均一化
+    - upsampling
+      - 陽性例を増やしてデータの均衡を保つ
+      - 2nd place
+  - EDAが参考になりそう
+    - https://www.kaggle.com/code/tachyon777/fork-of-melanoma-tachyon-eda
+  - TTA
+    - test time augmentation
+    - TestデータにもAugmentationをする
+    - TTAをしたほうがスコアが出たそう
+  - 外部データ
+    - positive dataの割合が増えることによるモデルの精度向上
+    - https://www.kaggle.com/code/shonenkov/merge-external-data
+  - Preprocessing
+    - 体毛除去より、体毛を追加してrobustなモデルにしたほうが精度良かったそう
+      - 体毛除去のnotebook: https://www.kaggle.com/code/vatsalparsaniya/melanoma-hair-remove
+
+- 1st: https://www.kaggle.com/c/siim-isic-melanoma-classification/discussion/175412
+- 2nd
+
+- Nelder-Mead method
+  - アンサンブルでよく用いられる
+  - 最適化手法
 
 #### PetFinderコンペ
+
 画像+メタデータ
 
-- 上位解法: https://qiita.com/taiga518/items/21c9fd96876293397e98
+- 上位解法記事: https://qiita.com/taiga518/items/21c9fd96876293397e98
+
+- 1st: https://www.kaggle.com/c/petfinder-pawpularity-score/discussion/301686
+  - 画像特徴量をSVRで処理
+- 2nd:
+
