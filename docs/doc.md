@@ -1,16 +1,30 @@
 ## Doc
 
+### 2024/08/25
+
+
 ### 2024/08/24
 
+- Augmentation改善
+  - 過去ISICコンペの1stのAugmentation: https://www.kaggle.com/competitions/siim-isic-melanoma-classification/discussion/175412
+- pAUCのscore関数を導入
+- effinet b0, b1, b2, b5で試して、b1のCVが良かったので採用
+  - CV: 0.1654, LB: 0.137
+
 - TODO
-  - image+tabularのNN
-  - pAUCのscore関数を導入
+  - 過去ISICコンペの解法調査
+  - 過去ISICコンペのデータを使う
+  - upsampling, downsampling改善
+  - （余裕あれば）引数によってモデルを変えられるような実装にしたい
+  - image+tabular
 
 ### 2024/08/23
 
 - metadata調査
-- image+tabularのNNを作りたい
-- image単体でどれが性能良いのか
+
+- TODO
+  - image+tabularのNNを作りたい
+  - image単体でどれが性能良いのか
 
 ### 2024/08/21
 
@@ -19,7 +33,6 @@
 ### 2024/08/19
 
 - swin_largeの実装&sub
-  -
   - pos:neg調整があったほうがLB良い
 
 ### 2024/08/18
@@ -223,6 +236,11 @@
 
 - 1st: https://www.kaggle.com/c/siim-isic-melanoma-classification/discussion/175412
 - 2nd:
+  - Backbone
+    - EfficientNet-B6 512x512
+    - EfficientNet B7 640x640
+  -
+
 
 - Nelder-Mead method
   - アンサンブルでよく用いられる
