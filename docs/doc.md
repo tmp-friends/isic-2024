@@ -1,5 +1,21 @@
 ## Doc
 
+### 2024/08/24
+
+- TODO
+  - image+tabularのNN
+  - pAUCのscore関数を導入
+
+### 2024/08/23
+
+- metadata調査
+- image+tabularのNNを作りたい
+- image単体でどれが性能良いのか
+
+### 2024/08/21
+
+- 過去コンペ調査
+
 ### 2024/08/19
 
 - swin_largeの実装&sub
@@ -109,9 +125,31 @@
 
 ### Survey
 
+- ISIC-2024 Pytorch Training Baseline (Swin) (ViT)
+  - https://www.kaggle.com/code/qiaoyingzhang/isic-2024-pytorch-training-baseline-swin
+  - https://www.kaggle.com/code/qiaoyingzhang/isic-2024-pytorch-training-baseline-vit
+  - Image+Tabularのマルチモーダル
+  - LB: 0.160
+
+- Sharing my "best" ImageNet notebook
+  - https://www.kaggle.com/competitions/isic-2024-challenge/discussion/529457
+  - 画像のみでLB: 0.151
+  - Model
+    - tf_eficientnetv2_b1
+    - 小さいモデルから試したが、あまりモデルの大きさは重要ではない
+  - Upsampling / Downsampling
+    - positive sample x20
+    - lesion_idのないnegative sampleは15%残す
+    - lesion_idのあるnegative sampleは30%残す
+    - -> positive:negative = 1:10
+  - Augmentation
+    - positive sampleをupsamplingしているので過学習を避けるため、augmentationを行う
+    -
+
 
 - Onboarding materials and references
   - https://www.kaggle.com/competitions/isic-2024-challenge/discussion/515341
+  - 過去の類似コンペの情報
 
 - Only Tabular data LB:0.181
   - https://www.kaggle.com/competitions/isic-2024-challenge/discussion/528582
@@ -184,7 +222,7 @@
       - 体毛除去のnotebook: https://www.kaggle.com/code/vatsalparsaniya/melanoma-hair-remove
 
 - 1st: https://www.kaggle.com/c/siim-isic-melanoma-classification/discussion/175412
-- 2nd
+- 2nd:
 
 - Nelder-Mead method
   - アンサンブルでよく用いられる
