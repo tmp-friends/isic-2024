@@ -29,7 +29,6 @@ class TrainEffnetConfig:
     n_epochs: int
     img_size: int
     model_name: str
-    # https://www.kaggle.com/models/timm/tf-efficientnet/PyTorch/tf-efficientnet-b0/1
     checkpoint_path: str
     train_batch_size: int
     valid_batch_size: int
