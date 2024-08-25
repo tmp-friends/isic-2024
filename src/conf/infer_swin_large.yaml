@@ -13,4 +13,4 @@ defaults:
 img_size: 224
 model_name: "swin_large_patch4_window7_224.ms_in22k_ft_in1k"
 valid_batch_size: 64
-best_model_bin: /kaggle/output/train/2024-08-19/00-15-31/AUROC0.5066_Loss0.0076_epoch5.bin
+best_model_bin: /kaggle/output/train/2024-08-19/12-54-06/AUROC0.5347_Loss0.1995_epoch21.bin

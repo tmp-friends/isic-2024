@@ -10,11 +10,11 @@ defaults:
   - _self_
   - dir: dir
 
-n_epochs: 5
+n_epochs: 40
 img_size: 224
 model_name: "swin_large_patch4_window7_224.ms_in22k_ft_in1k"
 train_batch_size: 32
-valid_batch_size: 64
+valid_batch_size: 128
 scheduler: "CosineAnnealingLR"
 lr: 1e-4
 min_lr: 1e-6
