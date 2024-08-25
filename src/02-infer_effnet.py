@@ -31,7 +31,7 @@ from albumentations.pytorch import ToTensorV2
 
 from utils.utils import set_seed
 from conf.type import InferEffnetConfig
-from datasets.dataset import ISICDataset_for_Test
+from datasets.dataset import ISICDataset
 from models.efficientnet import EfficientNet
 
 
@@ -41,26 +41,25 @@ def prepare_loaders(cfg: InferEffnetConfig, df: pd.DataFrame) -> DataLoader:
             [
                 A.Resize(cfg.img_size, cfg.img_size),
                 A.Normalize(
-                    mean=[0.485, 0.456, 0.406],
-                    std=[0.229, 0.224, 0.225],
+                    mean=[0.4815, 0.4578, 0.4082],
+                    std=[0.2686, 0.2613, 0.2758],
                     max_pixel_value=255.0,
-                    p=1.0,
                 ),
                 ToTensorV2(),
             ],
-            p=1.0,
         ),
     }
-    test_dataset = ISICDataset_for_Test(
+    test_dataset = ISICDataset(
         df=df,
-        file_hdf=cfg.dir.test_image_hdf,
+        file_path=cfg.dir.test_image_hdf,
         transforms=data_transforms["valid"],
+        is_training=False,
     )
 
     test_loader = DataLoader(
         test_dataset,
         batch_size=cfg.valid_batch_size,
-        num_workers=2,
+        num_workers=4,
         shuffle=False,
         pin_memory=True,
     )
@@ -94,7 +93,6 @@ def main(cfg: InferEffnetConfig):
     LOGGER.info(df)
 
     df_sub = pd.read_csv(cfg.dir.sample_csv)
-    LOGGER.info(df_sub)
 
     # Create dataloader
     test_loader = prepare_loaders(cfg=cfg, df=df)
@@ -110,6 +108,7 @@ def main(cfg: InferEffnetConfig):
 
     df_sub["target"] = preds
     df_sub.to_csv("submission.csv", index=False)
+    LOGGER.info(df_sub)
 
 
 if __name__ == "__main__":
