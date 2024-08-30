@@ -25,7 +25,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 
 # Sklearn Imports
 from sklearn.model_selection import StratifiedKFold, StratifiedGroupKFold
@@ -36,10 +36,31 @@ from albumentations.pytorch import ToTensorV2
 from albumentations.core.transforms_interface import ImageOnlyTransform
 import cv2
 
-from utils.utils import set_seed, save_processed_img, score
+from utils.utils import set_seed, save_processed_img
+from utils.metrics import score_p_auc_with_torch
 from conf.type import TrainEffnetConfig
 from datasets.dataset import ISICDataset
 from models.efficientnet import EfficientNet
+
+
+def load_data(cfg):
+    train_df = pd.read_csv(cfg.dir.train_meta_csv)
+
+    # # 2020 data (external data)
+    # train_df_ext1 = pd.read_csv(cfg.dir.train_meta_csv_2020)
+    # train_df_ext1 = train_df_ext1[train_df_ext1["tfrecord"] != -1].reset_index(drop=True)
+    # train_df_ext1["filepath"] = train_df_ext1["image_name"].apply(
+    #     lambda v: os.path.join(cfg.dir.train_image_dir_2020, f"{v}.jpg")
+    # )
+
+    # # 2018, 2019 data (external data)
+    # train_df_ext2 = pd.read_csv(cfg.dir.train_meta_csv_2019)
+    # train_df_ext2 = train_df_ext2[train_df_ext2["tfrecord"] != -1].reset_index(drop=True)
+    # train_df_ext2["filepath"] = train_df_ext2["image_name"].apply(
+    #     lambda v: os.path.join(cfg.dir.train_image_dir_2019, f"{v}.jpg")
+    # )
+
+    return train_df
 
 
 class Microscope(ImageOnlyTransform):
@@ -104,11 +125,20 @@ class CustomCutout(ImageOnlyTransform):
         return image
 
 
-def prepare_loaders(cfg: TrainEffnetConfig, df: pd.DataFrame) -> tuple[DataLoader, DataLoader]:
+def get_sampler(df: pd.DataFrame):
+    """ref: https://www.kaggle.com/code/syzygyfy/addressing-the-class-imbalance-in-pytorch"""
+    u, c = np.unique(df["target"], return_counts=True)
+    class_weights = [1.0 / v for v in c]
+    sample_weights = [class_weights[v] for v in df["target"]]
+
+    sampler = WeightedRandomSampler(sample_weights, len(sample_weights))
+
+    return sampler
+
+
+def prepare_loaders(cfg: TrainEffnetConfig, df: pd.DataFrame, sampler=None) -> tuple[DataLoader, DataLoader]:
     train_df = df[df.kfold != cfg.fold].reset_index(drop=True)
     valid_df = df[df.kfold == cfg.fold].reset_index(drop=True)
-
-    print(f"{len(train_df)=}, {len(valid_df)=}")
 
     data_transforms = {
         # ref: https://www.kaggle.com/competitions/siim-isic-melanoma-classification/discussion/175412
@@ -173,7 +203,8 @@ def prepare_loaders(cfg: TrainEffnetConfig, df: pd.DataFrame) -> tuple[DataLoade
         train_dataset,
         batch_size=cfg.train_batch_size,
         num_workers=4,
-        shuffle=True,
+        sampler=sampler,
+        # shuffle=True,
         pin_memory=True,
         drop_last=True,
     )
@@ -181,6 +212,7 @@ def prepare_loaders(cfg: TrainEffnetConfig, df: pd.DataFrame) -> tuple[DataLoade
         valid_dataset,
         batch_size=cfg.valid_batch_size,
         num_workers=4,
+        # sampler=sampler,
         shuffle=False,
         pin_memory=True,
     )
@@ -331,7 +363,7 @@ def train_one_epoch(
         bar.set_postfix(Epoch=epoch, LR=optimizer.param_groups[0]["lr"])
 
     epoch_loss = running_loss / dataset_size
-    epoch_pauc = score(y_true=y_true, y_preds=y_preds)
+    epoch_pauc = score_p_auc_with_torch(y_true=y_true, y_preds=y_preds)
 
     return epoch_loss, epoch_pauc
 
@@ -369,7 +401,7 @@ def valid_one_epoch(
         bar.set_postfix(Epoch=epoch, LR=optimizer.param_groups[0]["lr"])
 
     epoch_loss = running_loss / dataset_size
-    epoch_pauc = score(y_true=y_true, y_preds=y_preds)
+    epoch_pauc = score_p_auc_with_torch(y_true=y_true, y_preds=y_preds)
 
     return epoch_loss, epoch_pauc
 
@@ -377,14 +409,15 @@ def valid_one_epoch(
 @hydra.main(config_path="conf", config_name="train_effnet", version_base="1.1")
 def main(cfg: TrainEffnetConfig):
     # Read meta
-    df = pd.read_csv(cfg.dir.train_meta_csv)
+    # df = pd.read_csv(cfg.dir.train_meta_csv)
 
-    df_positive = df[df["target"] == 1].reset_index(drop=True)
-    df_negative = df[df["target"] == 0].reset_index(drop=True)
+    # df_positive = df[df["target"] == 1].reset_index(drop=True)
+    # df_negative = df[df["target"] == 0].reset_index(drop=True)
 
-    # positive:negative=1:20になるようDown sampling
-    # positiveが少ない不均衡データなので学習がうまくいくようにする意図
-    df = pd.concat([df_positive, df_negative.iloc[: df_positive.shape[0] * 20, :]]).reset_index(drop=True)
+    # # positive:negative=1:20になるようDown sampling
+    # # positiveが少ない不均衡データなので学習がうまくいくようにする意図
+    # df = pd.concat([df_positive, df_negative.iloc[: df_positive.shape[0] * 20, :]]).reset_index(drop=True)
+    df = load_data(cfg)
     LOGGER.info(df)
 
     cfg.T_max = df.shape[0] * (cfg.n_folds - 1) * cfg.n_epochs // cfg.train_batch_size // cfg.n_folds
@@ -395,7 +428,8 @@ def main(cfg: TrainEffnetConfig):
         df.loc[val_, "kfold"] = int(fold)
 
     # Create dataloader
-    train_loader, valid_loader = prepare_loaders(cfg=cfg, df=df)
+    sampler = get_sampler(df=df)
+    train_loader, valid_loader = prepare_loaders(cfg=cfg, df=df, sampler=sampler)
 
     # Def model
     # https://www.kaggle.com/models/timm/tf-efficientnet/pyTorch/tf-efficientnet-b0/1

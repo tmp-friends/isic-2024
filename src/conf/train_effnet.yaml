@@ -12,10 +12,10 @@ defaults:
 
 n_epochs: 75
 img_size: 384
-model_name: "tf_efficientnet_b5"
-checkpoint_path: "/kaggle/input/tf-efficientnet/pytorch/tf-efficientnet-b5/1/tf_efficientnet_b5_ra-9a3e5369.pth"
-train_batch_size: 16
-valid_batch_size: 64
+model_name: "tf_efficientnet_b1"
+checkpoint_path: "/kaggle/input/tf-efficientnet/pytorch/tf-efficientnet-b1/1/tf_efficientnet_b1_aa-ea7a6ee0.pth"
+train_batch_size: 64
+valid_batch_size: 128
 scheduler: "CosineAnnealingLR"
 lr: 1e-4
 min_lr: 1e-6
