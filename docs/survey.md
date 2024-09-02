@@ -99,7 +99,6 @@
   - https://www.kaggle.com/code/dschettler8845/isic-detect-skin-cancer-let-s-learn-together
   - EDA
 
-
 - https://www.kaggle.com/code/datafan07/analysis-of-melanoma-metadata-and-effnet-ensemble
 - https://www.kaggle.com/code/awsaf49/xgboost-tabular-data-ml-cv-85-lb-787#Image-Size
 
@@ -128,17 +127,83 @@
       - 体毛除去のnotebook: https://www.kaggle.com/code/vatsalparsaniya/melanoma-hair-remove
 
 - 1st: https://www.kaggle.com/c/siim-isic-melanoma-classification/discussion/175412
-  - data
+  - Data
     - https://github.com/haqishen/SIIM-ISIC-Melanoma-Classification-1st-Place-Solution/blob/master/dataset.py
     - 2020 JPEG Melanoma 256x256
-    - 2019
+    - 2019, 2018のデータも加える
+    - cv_2020とcv_allの2つの指標を見て実験サイクルを回した
     - 過去データを加えることでデータの不均衡は改善される
-    - Positive targetが過去データのものばかりになるので、本コンペデータをupsamplingするか検討
+  - Augmentations
+
+    ```py
+    transforms_train = A.Compose([
+        A.Transpose(p=0.5),
+        A.VerticalFlip(p=0.5),
+        A.HorizontalFlip(p=0.5),
+        A.RandomBrightness(limit=0.2, p=0.75),
+        A.RandomContrast(limit=0.2, p=0.75),
+        A.OneOf([
+            A.MotionBlur(blur_limit=5),
+            A.MedianBlur(blur_limit=5),
+            A.GaussianBlur(blur_limit=5),
+            A.GaussNoise(var_limit=(5.0, 30.0)),
+        ], p=0.7),
+
+        A.OneOf([
+            A.OpticalDistortion(distort_limit=1.0),
+            A.GridDistortion(num_steps=5, distort_limit=1.),
+            A.ElasticTransform(alpha=3),
+        ], p=0.7),
+
+        A.CLAHE(clip_limit=4.0, p=0.7),
+        A.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, val_shift_limit=10, p=0.5),
+        A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.1, rotate_limit=15, border_mode=0, p=0.85),
+        A.Resize(image_size, image_size),
+        A.Cutout(max_h_size=int(image_size * 0.375), max_w_size=int(image_size * 0.375), num_holes=1, p=0.7),
+        A.Normalize()
+    ])
+
+    transforms_val = A.Compose([
+        A.Resize(image_size, image_size),
+        A.Normalize()
+    ])
+
+    ```
+
+  - Model
+    - Backbone
+      - EfficientNet-B3-B7
+      - se_resnext101
+      - resnest101
+    - 画像サイズ
+      - 384~896
+    - 画像CNNとメタNNをconcat
+      - https://www.kaggle.com/code/awsaf49/xgboost-tabular-data-ml-cv-85-lb-787#Image-Size
+      - https://www.kaggle.com/code/nroman/melanoma-pytorch-starter-efficientnet
+    - Targets
+      - BCE Loss(2クラス分類)からCE Loss(多クラス分類)にすることで0.01ほどスコアを向上できた
+      - 2020年と2019年のデータでtargetが異なるので、2020年データの9クラスを手動でマッピング
+  - Post processing
+    - 異なるfold,modelをアンサンブルする場合、それぞれの推論結果にrankをつける
+    - その後、均等に分布させる
+  - 実装: https://github.com/haqishen/SIIM-ISIC-Melanoma-Classification-1st-Place-Solution/tree/master
 
 - 2nd: https://www.kaggle.com/c/siim-isic-melanoma-classification/discussion/175324
-  - Backbone
-    - EfficientNet-B6 512x512
-    - EfficientNet B7 640x640
+  - Data
+    - Positive targetが2019年のものばかりになるので、2020年のPositive targetをUpsampling x7
+      - 2019年と2020年のPositive targetをほぼ同数にした
+  - Model
+    - Backbone
+      - EfficientNet-B6 512x512
+      - EfficientNet B7 640x640
+    - Targets
+      - benign nevi, melanoma, otherの3クラス分類
+        - 細かく分類したほうが、benign, melanomaの2クラス分類よりモデルの性能が良くなるという仮説
+      - melanomaの大部分は暗色で、benign nevi(良性母斑)との識別が最も困難
+      - 2019年のデータにはneviを含む補助診断があったが、2020年のデータにはない
+      - 2019年のデータのみでモデルを学習し、2020年のデータに適用
+        - 2020年のunknownはneviかneviでないかの判定をすれば良い(melanomaではないため)
+        - 2019年のモデル予測の5%タイルを使用し、neviのラベルを付けた
 
 - Nelder-Mead method
   - アンサンブルでよく用いられる

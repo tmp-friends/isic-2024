@@ -1,4 +1,17 @@
 ## Doc
+
+TODO
+- 過去コンペデータの利用
+  - 考えることが多すぎるので、後回し
+  - 2024だけのデータでメタデータ, pseudoやって時間が余ったら実験する
+- メタデータ追加
+- pseudo labeling
+
+- 様々なモデルを作成
+- Stackingに組み込む
+- Feature Engineering
+- アンサンブル手法
+
 ### Image model
 
 #### Augmentation
@@ -19,8 +32,13 @@
 #### 不均衡データ
 
 - 1. data
-  - 過去のISICコンペのデータを使う
-  -
+  - ISIC archive
+    - isic-cliで全データ(Dermoscopic?)を取得し、メタデータをcsv/画像データをhdf形式にしたDatasetがあった
+      - https://www.kaggle.com/datasets/tomooinubushi/all-isic-data-20240629/data
+      - ISIC archive: https://www.isic-archive.com/
+      - isic-cli: https://github.com/ImageMarkup/isic-cli
+    - ISIC archiveには重複があるそうなので、除去する
+      - https://www.kaggle.com/competitions/siim-isic-melanoma-classification/discussion/161943
 - 2. Sampler
   - WeightedRandomSampler
     - https://www.kaggle.com/code/syzygyfy/addressing-the-class-imbalance-in-pytorch
