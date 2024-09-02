@@ -1,7 +1,7 @@
 # ---------- Overriding hydra default configs ----------
 hydra:
   job:
-    name: infer
+    name: train
     chdir: true
   run:
     dir: output/${hydra.job.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
@@ -9,8 +9,18 @@ hydra:
 defaults:
   - _self_
   - dir: dir
+  - model: EfficientNetB1
 
+n_epochs: 75
 img_size: 384
-model_name: "tf_efficientnet_b1"
+train_batch_size: 64
 valid_batch_size: 128
-best_model_bin: /kaggle/output/train/2024-09-02/05-49-12/pAUC0.1679_Loss0.1823_epoch61.bin
+scheduler: "CosineAnnealingLR"
+lr: 1e-4
+min_lr: 1e-6
+T_max: 500
+weight_decay: 1e-6
+fold: 0
+n_folds: 5
+n_accumulates: 1
+

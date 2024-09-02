@@ -1,35 +1,25 @@
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
 class DirConfig:
     data_dir: str
-    train_meta_csv: str
-    train_image_dir: str
-    test_meta_csv: str
-    test_image_hdf: str
-    sample_csv: str
+    all_isic_data_dir: str
+
+
+@dataclass
+class ModelConfig:
+    name: str
+    params: dict[str, Any]
 
 
 @dataclass
 class TrainConfig:
     dir: DirConfig
-    seed: int
-    batch_size: int
-    n_epochs: int
-    batch_size: int
-    early_stopping_patience: int
-    lr: float
-    max_lr: float
-
-
-@dataclass
-class TrainEffnetConfig:
-    dir: DirConfig
+    model: ModelConfig
     n_epochs: int
     img_size: int
-    model_name: str
-    checkpoint_path: str
     train_batch_size: int
     valid_batch_size: int
     scheduler: str
@@ -43,19 +33,11 @@ class TrainEffnetConfig:
 
 
 @dataclass
-class InferEffnetConfig:
+class TrainPseudoConfig:
     dir: DirConfig
-    img_size: int
-    model_name: str
-    valid_batch_size: int
-
-
-@dataclass
-class TrainTimmModelConfig:
-    dir: DirConfig
+    model: ModelConfig
     n_epochs: int
     img_size: int
-    model_name: str
     train_batch_size: int
     valid_batch_size: int
     scheduler: str
@@ -69,8 +51,9 @@ class TrainTimmModelConfig:
 
 
 @dataclass
-class InferTimmModelConfig:
+class InferConfig:
     dir: DirConfig
+    model: ModelConfig
+    best_model_bin: str
     img_size: int
-    model_name: str
     valid_batch_size: int

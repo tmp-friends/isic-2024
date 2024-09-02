@@ -18,7 +18,6 @@ import numpy as np
 import pandas as pd
 
 from matplotlib import pyplot as plt
-import cv2
 
 # Pytorch Imports
 import torch
@@ -30,28 +29,43 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 # Sklearn Imports
 from sklearn.model_selection import StratifiedKFold, StratifiedGroupKFold
 
-
 from utils.utils import set_seed, save_processed_img
 from utils.metrics import score_p_auc_with_torch
 from conf.type import TrainConfig
-from datasets.dataset import ISICDataset, PseudoISICDataset
+from datasets.dataset import ISICDataset
 from models.common import get_model
 
 
 def load_data(cfg: TrainConfig):
-    train_df = pd.read_csv(os.path.join(cfg.dir.data_dir, "train-metadata.csv"))
+    df = pd.read_csv(os.path.join(cfg.dir.data_dir, "train-metadata.csv"))
 
-    pos_train_df = train_df[train_df["target"] == 1].reset_index(drop=True)
-    neg_train_df = train_df[train_df["target"] == 0].reset_index(drop=True)
+    pos_df = df[df["target"] == 1].reset_index(drop=True)
+    neg_df = df[df["target"] == 0].reset_index(drop=True)
 
     # positive:negative=1:20になるようDown sampling
     # positiveが少ない不均衡データなので学習がうまくいくようにする意図
-    train_df = pd.concat([pos_train_df, neg_train_df.iloc[: pos_train_df.shape[0] * 20, :]]).reset_index(drop=True)
+    df = pd.concat([pos_df, neg_df.iloc[: pos_df.shape[0] * 30, :]]).reset_index(drop=True)
 
-    test_df = pd.read_csv(os.path.join(cfg.dir.data_dir, "test-metadata.csv"))
-    test_df["target"] = 0  # dummy label
+    # # 2020 data (external data)
+    # train_df_ext1 = pd.read_csv(cfg.dir.train_meta_csv_2020)
+    # train_df_ext1 = train_df_ext1[train_df_ext1["tfrecord"] != -1].reset_index(drop=True)
+    # train_df_ext1["filepath"] = train_df_ext1["image_name"].apply(
+    #     lambda v: os.path.join(cfg.dir.train_image_dir_2020, f"{v}.jpg")
+    # )
 
-    return train_df, test_df
+    # # 2018, 2019 data (external data)
+    # train_df_ext2 = pd.read_csv(cfg.dir.train_meta_csv_2019)
+    # train_df_ext2 = train_df_ext2[train_df_ext2["tfrecord"] != -1].reset_index(drop=True)
+    # train_df_ext2["filepath"] = train_df_ext2["image_name"].apply(
+    #     lambda v: os.path.join(cfg.dir.train_image_dir_2019, f"{v}.jpg")
+    # )
+
+    # train_df["benign_malignant"].fillna("unknown", inplace=True)
+
+    # # class mapping diagnosis2idx = {v: i for i, v in enumerate(sorted(train_df["benign_malignant"].unique()))}
+    # train_df["target"] = train_df["benign_malignant"].map(diagnosis2idx)
+
+    return df
 
 
 def get_sampler(df: pd.DataFrame):
@@ -63,6 +77,51 @@ def get_sampler(df: pd.DataFrame):
     sampler = WeightedRandomSampler(sample_weights, len(sample_weights))
 
     return sampler
+
+
+def prepare_loaders(
+    cfg: TrainConfig,
+    df: pd.DataFrame,
+    test_df: pd.DataFrame = None,
+    sampler=None,
+) -> tuple[DataLoader, DataLoader]:
+    train_df = df[df.kfold != cfg.fold].reset_index(drop=True)
+    valid_df = df[df.kfold == cfg.fold].reset_index(drop=True)
+
+    train_dataset = ISICDataset(
+        cfg,
+        train_df,
+        file_path=os.path.join(cfg.dir.data_dir, "train-image.hdf5"),
+        is_training=True,
+    )
+    valid_dataset = ISICDataset(
+        cfg,
+        valid_df,
+        file_path=os.path.join(cfg.dir.data_dir, "train-image.hdf5"),
+        is_training=False,
+    )
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=cfg.train_batch_size,
+        num_workers=4,
+        # sampler=sampler,
+        shuffle=True,
+        pin_memory=True,
+        drop_last=True,
+    )
+    valid_loader = DataLoader(
+        valid_dataset,
+        batch_size=cfg.valid_batch_size,
+        num_workers=4,
+        # sampler=sampler,
+        shuffle=False,
+        pin_memory=True,
+    )
+
+    save_processed_img(train_dataset)
+
+    return train_loader, valid_loader
 
 
 def fetch_scheduler(cfg: TrainConfig, optimizer: optim) -> lr_scheduler:
@@ -86,36 +145,6 @@ def fetch_scheduler(cfg: TrainConfig, optimizer: optim) -> lr_scheduler:
 
 def criterion(outputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
     return nn.BCELoss()(outputs, targets)
-
-
-def infer_pseudo_label(cfg: TrainConfig, test_df: pd.DataFrame, model):
-    test_dataset = ISICDataset(
-        cfg=cfg,
-        df=test_df,
-        file_path=os.path.join(cfg.dir.data_dir, "test-image.hdf5"),
-        is_training=False,
-    )
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=cfg.valid_batch_size,
-        num_workers=4,
-        shuffle=False,
-        pin_memory=True,
-    )
-
-    preds = []
-    with torch.no_grad():
-        bar = tqdm(enumerate(test_loader), total=len(test_loader))
-        for step, data in bar:
-            images = data["image"].to(device, dtype=torch.float)
-            batch_size = images.size(0)
-            outputs = model(images)
-
-            preds.append(outputs.detach().cpu().numpy())
-
-    preds = np.concatenate(preds).flatten()
-
-    return preds
 
 
 def train_one_epoch(
@@ -216,8 +245,7 @@ def run_training(
     model: nn.Module,
     optimizer: optim,
     scheduler: lr_scheduler,
-    train_df: pd.DataFrame,
-    test_df: pd.DataFrame,
+    train_loader: DataLoader,
     valid_loader: DataLoader,
 ) -> nn.Module | dict:
     if torch.cuda.is_available():
@@ -229,36 +257,6 @@ def run_training(
     history = defaultdict(list)
 
     for epoch in range(1, cfg.n_epochs + 1):
-        if epoch <= 1:
-            train_dataset = ISICDataset(
-                cfg=cfg,
-                df=train_df,
-                file_path=os.path.join(cfg.dir.data_dir, "train-image.hdf5"),
-                is_training=True,
-            )
-        else:  # PseudoLabeling
-            test_df["target"] = infer_pseudo_label(cfg, test_df, model)
-
-            train_dataset = PseudoISICDataset(
-                cfg=cfg,
-                df=train_df,
-                file_path=os.path.join(cfg.dir.data_dir, "train-image.hdf5"),
-                pseudo_df=test_df,
-                pseudo_file_path=os.path.join(cfg.dir.data_dir, "test-image.hdf5"),
-                pseudo_threshold=0.85,
-                is_training=True,
-            )
-
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=cfg.train_batch_size,
-            num_workers=4,
-            # sampler=sampler,
-            shuffle=True,
-            pin_memory=True,
-            drop_last=True,
-        )
-
         train_epoch_loss, train_epoch_pauc = train_one_epoch(
             cfg,
             model,
@@ -270,7 +268,7 @@ def run_training(
         valid_epoch_loss, valid_epoch_pauc = valid_one_epoch(
             model,
             optimizer,
-            valid_loader,
+            dataloader=valid_loader,
             epoch=epoch,
         )
         LOGGER.info(
@@ -314,7 +312,7 @@ def run_training(
 @hydra.main(config_path="conf", config_name="train", version_base="1.2")
 def main(cfg: TrainConfig):
     # Read meta
-    df, test_df = load_data(cfg)
+    df = load_data(cfg)
     LOGGER.info(df)
 
     cfg.T_max = df.shape[0] * (cfg.n_folds - 1) * cfg.n_epochs // cfg.train_batch_size // cfg.n_folds
@@ -326,24 +324,7 @@ def main(cfg: TrainConfig):
 
     # Create dataloader
     # sampler = get_sampler(df=df)
-    train_df = df[df.kfold != cfg.fold].reset_index(drop=True)
-    valid_df = df[df.kfold == cfg.fold].reset_index(drop=True)
-
-    # PseudoLabelingのため、valid_loaderのみ生成しておく
-    valid_dataset = ISICDataset(
-        cfg=cfg,
-        df=valid_df,
-        file_path=os.path.join(cfg.dir.data_dir, "train-image.hdf5"),
-        is_training=False,
-    )
-    valid_loader = DataLoader(
-        valid_dataset,
-        batch_size=cfg.valid_batch_size,
-        num_workers=4,
-        # sampler=sampler,
-        shuffle=False,
-        pin_memory=True,
-    )
+    train_loader, valid_loader = prepare_loaders(cfg=cfg, df=df)
 
     # Def model
     model = get_model(cfg=cfg.model)
@@ -363,8 +344,7 @@ def main(cfg: TrainConfig):
         model=model,
         optimizer=optimizer,
         scheduler=scheduler,
-        train_df=train_df,
-        test_df=test_df,
+        train_loader=train_loader,
         valid_loader=valid_loader,
     )
 
