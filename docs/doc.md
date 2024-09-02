@@ -31,7 +31,26 @@ TODO
 
 #### 不均衡データ
 
-- 1. data
+- DownSampling
+  - 1:20 CV: 0.1707, LB: 0.139
+  - 1:30 CV: 0.1418
+  - 1:40 CV: 0.1404
+
+- Sampler
+  - WeightedRandomSampler
+    - https://www.kaggle.com/code/syzygyfy/addressing-the-class-imbalance-in-pytorch
+    - CV: 0.133828
+    - overfitしてそう
+  - DownSampler自作
+    - https://www.kaggle.com/code/taikimori/overdownsampler-isic-cnn-training-inference
+  - 参考: https://arxiv.org/pdf/1710.05381
+
+- PseudoLabeling
+  - CV: 0.1679, LB: 0.140
+    - 不均衡データをかさ増ししたところであまり効果がない
+    - 不均衡をある程度改善できたらまた試しても良いかも
+
+- Data
   - ISIC archive
     - isic-cliで全データ(Dermoscopic?)を取得し、メタデータをcsv/画像データをhdf形式にしたDatasetがあった
       - https://www.kaggle.com/datasets/tomooinubushi/all-isic-data-20240629/data
@@ -39,15 +58,6 @@ TODO
       - isic-cli: https://github.com/ImageMarkup/isic-cli
     - ISIC archiveには重複があるそうなので、除去する
       - https://www.kaggle.com/competitions/siim-isic-melanoma-classification/discussion/161943
-- 2. Sampler
-  - WeightedRandomSampler
-    - https://www.kaggle.com/code/syzygyfy/addressing-the-class-imbalance-in-pytorch
-    - CV: 0.133828
-    - overfitしてそう
-  - DownSampler自作
-    - https://www.kaggle.com/code/taikimori/overdownsampler-isic-cnn-training-inference
-
-- 参考: https://arxiv.org/pdf/1710.05381
 
 #### Backborn
 
