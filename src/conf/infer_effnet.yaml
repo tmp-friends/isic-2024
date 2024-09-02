@@ -13,4 +13,4 @@ defaults:
 img_size: 384
 model_name: "tf_efficientnet_b1"
 valid_batch_size: 128
-best_model_bin: /kaggle/output/train/2024-08-25/21-45-27/pAUC0.1602_Loss0.4728_epoch49.bin
+best_model_bin: /kaggle/output/train/2024-09-02/05-49-12/pAUC0.1679_Loss0.1823_epoch61.bin
