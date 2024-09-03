@@ -18,7 +18,6 @@ import numpy as np
 import pandas as pd
 
 from matplotlib import pyplot as plt
-import cv2
 
 # Pytorch Imports
 import torch
@@ -30,28 +29,11 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 # Sklearn Imports
 from sklearn.model_selection import StratifiedKFold, StratifiedGroupKFold
 
-
 from utils.utils import set_seed, save_processed_img
 from utils.metrics import score_p_auc_with_torch
 from conf.type import TrainConfig
-from datasets.dataset import ISICDataset, PseudoISICDataset
+from datasets.dataset import load_data, ISICDataset
 from models.common import get_model
-
-
-def load_data(cfg: TrainConfig):
-    train_df = pd.read_csv(os.path.join(cfg.dir.data_dir, "train-metadata.csv"))
-
-    pos_train_df = train_df[train_df["target"] == 1].reset_index(drop=True)
-    neg_train_df = train_df[train_df["target"] == 0].reset_index(drop=True)
-
-    # positive:negative=1:20になるようDown sampling
-    # positiveが少ない不均衡データなので学習がうまくいくようにする意図
-    train_df = pd.concat([pos_train_df, neg_train_df.iloc[: pos_train_df.shape[0] * 20, :]]).reset_index(drop=True)
-
-    test_df = pd.read_csv(os.path.join(cfg.dir.data_dir, "test-metadata.csv"))
-    test_df["target"] = 0  # dummy label
-
-    return train_df, test_df
 
 
 def get_sampler(df: pd.DataFrame):
@@ -63,6 +45,53 @@ def get_sampler(df: pd.DataFrame):
     sampler = WeightedRandomSampler(sample_weights, len(sample_weights))
 
     return sampler
+
+
+def prepare_loaders(
+    cfg: TrainConfig,
+    df: pd.DataFrame,
+    meta_features: list,
+    sampler=None,
+) -> tuple[DataLoader, DataLoader]:
+    train_df = df[df.kfold != cfg.fold].reset_index(drop=True)
+    valid_df = df[df.kfold == cfg.fold].reset_index(drop=True)
+
+    train_dataset = ISICDataset(
+        cfg,
+        train_df,
+        file_path=os.path.join(cfg.dir.data_dir, "train-image.hdf5"),
+        meta_features=meta_features,
+        is_training=True,
+    )
+    valid_dataset = ISICDataset(
+        cfg,
+        valid_df,
+        file_path=os.path.join(cfg.dir.data_dir, "train-image.hdf5"),
+        meta_features=meta_features,
+        is_training=False,
+    )
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=cfg.train_batch_size,
+        num_workers=4,
+        # sampler=sampler,
+        shuffle=True,
+        pin_memory=True,
+        drop_last=True,
+    )
+    valid_loader = DataLoader(
+        valid_dataset,
+        batch_size=cfg.valid_batch_size,
+        num_workers=4,
+        # sampler=sampler,
+        shuffle=False,
+        pin_memory=True,
+    )
+
+    save_processed_img(train_dataset)
+
+    return train_loader, valid_loader
 
 
 def fetch_scheduler(cfg: TrainConfig, optimizer: optim) -> lr_scheduler:
@@ -88,36 +117,6 @@ def criterion(outputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
     return nn.BCELoss()(outputs, targets)
 
 
-def infer_pseudo_label(cfg: TrainConfig, test_df: pd.DataFrame, model):
-    test_dataset = ISICDataset(
-        cfg=cfg,
-        df=test_df,
-        file_path=os.path.join(cfg.dir.data_dir, "test-image.hdf5"),
-        is_training=False,
-    )
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=cfg.valid_batch_size,
-        num_workers=4,
-        shuffle=False,
-        pin_memory=True,
-    )
-
-    preds = []
-    with torch.no_grad():
-        bar = tqdm(enumerate(test_loader), total=len(test_loader))
-        for step, data in bar:
-            images = data["image"].to(device, dtype=torch.float)
-            batch_size = images.size(0)
-            outputs = model(images)
-
-            preds.append(outputs.detach().cpu().numpy())
-
-    preds = np.concatenate(preds).flatten()
-
-    return preds
-
-
 def train_one_epoch(
     cfg: TrainConfig,
     model: nn.Module,
@@ -125,7 +124,6 @@ def train_one_epoch(
     scheduler: lr_scheduler,
     dataloader: DataLoader,
     epoch: int,
-    test_df=None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     model.train()
 
@@ -138,14 +136,15 @@ def train_one_epoch(
 
     bar = tqdm(enumerate(dataloader), total=len(dataloader))
     for step, data in bar:
-        images = data["image"].to(device, dtype=torch.float)
-        targets = data["target"].to(device, dtype=torch.float)
+        x = data["image"].to(device, dtype=torch.float)
+        x_meta = data["meta"].to(device, dtype=torch.float)
+        y = data["target"].to(device, dtype=torch.float)
 
-        batch_size = images.size(0)
+        batch_size = x.size(0)
 
-        outputs = model(images).squeeze()
+        outputs = model(x, x_meta).squeeze()
 
-        loss = criterion(outputs, targets)
+        loss = criterion(outputs, y)
         loss /= cfg.n_accumulates
 
         loss.backward()
@@ -162,7 +161,7 @@ def train_one_epoch(
         running_loss += loss.item() * batch_size
         dataset_size += batch_size
 
-        y_true.extend(targets.detach().cpu().numpy())
+        y_true.extend(y.detach().cpu().numpy())
         y_preds.extend(outputs.detach().cpu().numpy())
 
         bar.set_postfix(Epoch=epoch, LR=optimizer.param_groups[0]["lr"])
@@ -189,18 +188,19 @@ def valid_one_epoch(
     y_preds = []
     bar = tqdm(enumerate(dataloader), total=len(dataloader))
     for step, data in bar:
-        images = data["image"].to(device, dtype=torch.float)
-        targets = data["target"].to(device, dtype=torch.float)
+        x = data["image"].to(device, dtype=torch.float)
+        x_meta = data["meta"].to(device, dtype=torch.float)
+        y = data["target"].to(device, dtype=torch.float)
 
-        batch_size = images.size(0)
+        batch_size = x.size(0)
 
-        outputs = model(images).squeeze()
-        loss = criterion(outputs, targets)
+        outputs = model(x, x_meta).squeeze()
+        loss = criterion(outputs, y)
 
         running_loss += loss.item() * batch_size
         dataset_size += batch_size
 
-        y_true.extend(targets.detach().cpu().numpy())
+        y_true.extend(y.detach().cpu().numpy())
         y_preds.extend(outputs.detach().cpu().numpy())
 
         bar.set_postfix(Epoch=epoch, LR=optimizer.param_groups[0]["lr"])
@@ -216,8 +216,7 @@ def run_training(
     model: nn.Module,
     optimizer: optim,
     scheduler: lr_scheduler,
-    train_df: pd.DataFrame,
-    test_df: pd.DataFrame,
+    train_loader: DataLoader,
     valid_loader: DataLoader,
 ) -> nn.Module | dict:
     if torch.cuda.is_available():
@@ -229,36 +228,6 @@ def run_training(
     history = defaultdict(list)
 
     for epoch in range(1, cfg.n_epochs + 1):
-        if epoch <= 1:
-            train_dataset = ISICDataset(
-                cfg=cfg,
-                df=train_df,
-                file_path=os.path.join(cfg.dir.data_dir, "train-image.hdf5"),
-                is_training=True,
-            )
-        else:  # PseudoLabeling
-            test_df["target"] = infer_pseudo_label(cfg, test_df, model)
-
-            train_dataset = PseudoISICDataset(
-                cfg=cfg,
-                df=train_df,
-                file_path=os.path.join(cfg.dir.data_dir, "train-image.hdf5"),
-                pseudo_df=test_df,
-                pseudo_file_path=os.path.join(cfg.dir.data_dir, "test-image.hdf5"),
-                pseudo_threshold=0.85,
-                is_training=True,
-            )
-
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=cfg.train_batch_size,
-            num_workers=4,
-            # sampler=sampler,
-            shuffle=True,
-            pin_memory=True,
-            drop_last=True,
-        )
-
         train_epoch_loss, train_epoch_pauc = train_one_epoch(
             cfg,
             model,
@@ -270,7 +239,7 @@ def run_training(
         valid_epoch_loss, valid_epoch_pauc = valid_one_epoch(
             model,
             optimizer,
-            valid_loader,
+            dataloader=valid_loader,
             epoch=epoch,
         )
         LOGGER.info(
@@ -314,39 +283,23 @@ def run_training(
 @hydra.main(config_path="conf", config_name="train", version_base="1.2")
 def main(cfg: TrainConfig):
     # Read meta
-    df, test_df = load_data(cfg)
-    LOGGER.info(df)
+    train_df, test_df, meta_features, n_meta_features = load_data(cfg)
+    LOGGER.info(train_df)
+    LOGGER.info(f"{meta_features=}")
 
-    cfg.T_max = df.shape[0] * (cfg.n_folds - 1) * cfg.n_epochs // cfg.train_batch_size // cfg.n_folds
+    cfg.T_max = train_df.shape[0] * (cfg.n_folds - 1) * cfg.n_epochs // cfg.train_batch_size // cfg.n_folds
 
     # Create fold
     sgkf = StratifiedGroupKFold(n_splits=cfg.n_folds)
-    for fold, (_, val_) in enumerate(sgkf.split(df, df["target"], df["patient_id"])):
-        df.loc[val_, "kfold"] = int(fold)
+    for fold, (_, val_) in enumerate(sgkf.split(train_df, train_df["target"], train_df["patient_id"])):
+        train_df.loc[val_, "kfold"] = int(fold)
 
     # Create dataloader
     # sampler = get_sampler(df=df)
-    train_df = df[df.kfold != cfg.fold].reset_index(drop=True)
-    valid_df = df[df.kfold == cfg.fold].reset_index(drop=True)
-
-    # PseudoLabelingのため、valid_loaderのみ生成しておく
-    valid_dataset = ISICDataset(
-        cfg=cfg,
-        df=valid_df,
-        file_path=os.path.join(cfg.dir.data_dir, "train-image.hdf5"),
-        is_training=False,
-    )
-    valid_loader = DataLoader(
-        valid_dataset,
-        batch_size=cfg.valid_batch_size,
-        num_workers=4,
-        # sampler=sampler,
-        shuffle=False,
-        pin_memory=True,
-    )
+    train_loader, valid_loader = prepare_loaders(cfg=cfg, df=train_df, meta_features=meta_features)
 
     # Def model
-    model = get_model(cfg=cfg.model, is_pretrained=True)
+    model = get_model(cfg=cfg.model, is_pretrained=True, n_meta_features=n_meta_features)
     model.to(device)
     LOGGER.info(model)
 
@@ -363,8 +316,7 @@ def main(cfg: TrainConfig):
         model=model,
         optimizer=optimizer,
         scheduler=scheduler,
-        train_df=train_df,
-        test_df=test_df,
+        train_loader=train_loader,
         valid_loader=valid_loader,
     )
 

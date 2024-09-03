@@ -25,42 +25,24 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 
-# Albumentations for augmentations
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
-
 from utils.utils import set_seed
-from conf.type import InferTimmModelConfig
-from datasets.dataset import ISICDataset_for_Test
-from models.net import Net
+from conf.type import InferConfig
+from datasets.dataset import load_data, ISICDataset
+from models.common import get_model
 
 
-def prepare_loaders(cfg: InferTimmModelConfig, df: pd.DataFrame) -> DataLoader:
-    data_transforms = {
-        "valid": A.Compose(
-            [
-                A.Resize(cfg.img_size, cfg.img_size),
-                A.Normalize(
-                    mean=[0.485, 0.456, 0.406],
-                    std=[0.229, 0.224, 0.225],
-                    max_pixel_value=255.0,
-                    p=1.0,
-                ),
-                ToTensorV2(),
-            ],
-            p=1.0,
-        ),
-    }
-    test_dataset = ISICDataset_for_Test(
+def prepare_loaders(cfg: InferConfig, df: pd.DataFrame, meta_features=None) -> DataLoader:
+    test_dataset = ISICDataset(
+        cfg=cfg,
         df=df,
-        file_hdf=cfg.dir.test_image_hdf,
-        transforms=data_transforms["valid"],
+        file_path=os.path.join(cfg.dir.data_dir, "test-image.hdf5"),
+        meta_features=meta_features,
+        is_training=False,
     )
-
     test_loader = DataLoader(
         test_dataset,
         batch_size=cfg.valid_batch_size,
-        num_workers=2,
+        num_workers=4,
         shuffle=False,
         pin_memory=True,
     )
@@ -75,35 +57,32 @@ def run_inference(model: nn.Module, dataloader: DataLoader) -> np.ndarray:
     preds = []
     bar = tqdm(enumerate(dataloader), total=len(dataloader))
     for step, data in bar:
-        images = data["image"].to(device, dtype=torch.float)
+        x = data["image"].to(device, dtype=torch.float)
+        x_meta = data["meta"].to(device, dtype=torch.float)
 
-        batch_size = images.size(0)
+        batch_size = x.size(0)
 
-        outputs = model(images)
+        outputs = model(x, x_meta)
         preds.append(outputs.detach().cpu().numpy())
 
     return np.concatenate(preds).flatten()
 
 
-@hydra.main(config_path="conf", config_name="infer_swin_large", version_base="1.1")
-def main(cfg: InferTimmModelConfig):
-    """
-    ref:
-        - https://www.kaggle.com/code/inoueu1/isic2024-baseline-image-model
-    """
+@hydra.main(config_path="conf", config_name="infer", version_base="1.2")
+def main(cfg: InferConfig):
+    """ref: https://www.kaggle.com/code/motono0223/isic-script-inference-effnetv1b0-f313ae/notebook"""
     # Read meta
-    df = pd.read_csv(cfg.dir.test_meta_csv)
-    df["target"] = 0  # dummy
-    LOGGER.info(df)
+    _, test_df, meta_features, n_meta_features = load_data(cfg)
+    test_df["target"] = 0  # dummy
+    LOGGER.info(test_df)
 
-    df_sub = pd.read_csv(cfg.dir.sample_csv)
-    LOGGER.info(df_sub)
+    df_sub = pd.read_csv(os.path.join(cfg.dir.data_dir, "sample_submission.csv"))
 
     # Create dataloader
-    test_loader = prepare_loaders(cfg=cfg, df=df)
+    test_loader = prepare_loaders(cfg=cfg, df=test_df, meta_features=meta_features)
 
     # Def model
-    model = Net(model_name=cfg.model_name, pretrained=False)
+    model = get_model(cfg=cfg.model, is_pretrained=False, n_meta_features=n_meta_features)
     model.load_state_dict(torch.load(cfg.best_model_bin))
     model.to(device)
 
@@ -112,6 +91,7 @@ def main(cfg: InferTimmModelConfig):
 
     df_sub["target"] = preds
     df_sub.to_csv("submission.csv", index=False)
+    LOGGER.info(df_sub)
 
 
 if __name__ == "__main__":

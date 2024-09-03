@@ -4,6 +4,8 @@ import torch.nn.functional as F
 
 import timm
 
+from models.functions import SwishModule
+
 
 class GeM(nn.Module):
     def __init__(self, p=3, eps=1e-6):
@@ -25,23 +27,53 @@ class EfficientNet(nn.Module):
     def __init__(
         self,
         model_name,
-        num_classes=1,
-        pretrained=True,
+        pretrained=False,
         checkpoint_path=None,
+        n_meta_features=0,
+        n_meta_dim=[512, 128],
+        num_classes=1,
     ):
         super().__init__()
         self.model = timm.create_model(model_name, pretrained=pretrained, checkpoint_path=checkpoint_path)
 
+        self.n_meta_features = n_meta_features
         in_features = self.model.classifier.in_features
-        self.model.classifier = nn.Identity()
-        self.model.global_pool = nn.Identity()
-        self.pooling = GeM()
+        if n_meta_features > 0:
+            self.meta = nn.Sequential(
+                nn.Linear(n_meta_features, n_meta_dim[0]),
+                nn.BatchNorm1d(n_meta_dim[0]),
+                SwishModule(),
+                nn.Dropout(p=0.3),
+                nn.Linear(n_meta_dim[0], n_meta_dim[1]),
+                nn.BatchNorm1d(n_meta_dim[1]),
+                SwishModule(),
+            )
+            in_features += n_meta_dim[1]
         self.linear = nn.Linear(in_features, num_classes)
+        self.dropouts = nn.ModuleList([nn.Dropout(0.5) for _ in range(5)])
         self.sigmoid = nn.Sigmoid()
+        self.model.classifier = nn.Identity()
 
-    def forward(self, images):
-        features = self.model(images)
-        pooled_features = self.pooling(features).flatten(1)
-        output = self.sigmoid(self.linear(pooled_features))
+    def extract(self, x):
+        return self.model(x)
 
-        return output
+    def forward(self, x, x_meta):
+        """
+        Args:
+            x: images
+            x_meta: metadata
+        """
+        x = self.extract(x).squeeze(-1).squeeze(-1)
+
+        if self.n_meta_features > 0:
+            x_meta = self.meta(x_meta)
+            x = torch.cat((x, x_meta), dim=1)
+        for i, dropout in enumerate(self.dropouts):
+            if i == 0:
+                out = self.linear(dropout(x))
+            else:
+                out += self.linear(dropout(x))
+
+        out /= len(self.dropouts)
+
+        return self.sigmoid(out)

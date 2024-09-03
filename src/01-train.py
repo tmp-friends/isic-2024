@@ -44,7 +44,7 @@ def load_data(cfg: TrainConfig):
 
     # positive:negative=1:20になるようDown sampling
     # positiveが少ない不均衡データなので学習がうまくいくようにする意図
-    df = pd.concat([pos_df, neg_df.iloc[: pos_df.shape[0] * 30, :]]).reset_index(drop=True)
+    df = pd.concat([pos_df, neg_df.iloc[: pos_df.shape[0] * 20, :]]).reset_index(drop=True)
 
     # # 2020 data (external data)
     # train_df_ext1 = pd.read_csv(cfg.dir.train_meta_csv_2020)
@@ -327,7 +327,7 @@ def main(cfg: TrainConfig):
     train_loader, valid_loader = prepare_loaders(cfg=cfg, df=df)
 
     # Def model
-    model = get_model(cfg=cfg.model)
+    model = get_model(cfg=cfg.model, is_pretrained=True)
     model.to(device)
     LOGGER.info(model)
 
