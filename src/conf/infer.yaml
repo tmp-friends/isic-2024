@@ -12,5 +12,6 @@ defaults:
   - model: EfficientNetB1
 
 best_model_bin: "dummy" # 引数から指定
-img_size: 384
+# img_size: 384
+img_size: 336
 valid_batch_size: 128

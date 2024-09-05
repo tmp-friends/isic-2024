@@ -3,3 +3,4 @@ params:
   # https://www.kaggle.com/models/timm/tf-efficientnet/pyTorch/tf-efficientnet-b0/1
   model_name: "tf_efficientnet_b1"
   checkpoint_path: "/kaggle/input/tf-efficientnet/pytorch/tf-efficientnet-b1/1/tf_efficientnet_b1_aa-ea7a6ee0.pth"
+  img_size: 384

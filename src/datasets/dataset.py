@@ -16,38 +16,16 @@ class ISICDataset(Dataset):
     def __init__(self, cfg, df: pd.DataFrame, file_path: str, meta_features: list = None, is_training=True):
         self.df = df
         self.file_path = h5py.File(file_path, mode="r")
-
         self.uses_meta = meta_features is not None
         self.meta_features = meta_features
-
-        if is_training:
-            self.positive_df = df[df["target"] == 1].reset_index()
-            self.negative_df = df[df["target"] == 0].reset_index()
-
-            self.positive_isic_ids = self.positive_df["isic_id"].values
-            self.negative_isic_ids = self.negative_df["isic_id"].values
-            self.positive_targets = self.positive_df["target"].values
-            self.negative_targets = self.negative_df["target"].values
-
         self.transforms = define_transforms(cfg=cfg, is_training=is_training)
         self.is_training = is_training
 
     def __len__(self):
-        return len(self.positive_df) * 2 if self.is_training else len(self.df)
+        return len(self.df)
 
     def __getitem__(self, ix):
-        if self.is_training:
-            is_positive = random.random() >= 0.5
-
-            subset_df = self.positive_df if is_positive else self.negative_df
-            isic_ids = self.positive_isic_ids if is_positive else self.negative_isic_ids
-            targets = self.positive_targets if is_positive else self.negative_targets
-
-            ix %= len(subset_df)
-
-            row = subset_df.iloc[ix]
-        else:
-            row = self.df.iloc[ix]
+        row = self.df.iloc[ix]
 
         isic_id = row["isic_id"]
         target = row["target"]
@@ -149,30 +127,6 @@ class PseudoISICDataset(Dataset):
 def get_meta(train_df: pd.DataFrame, test_df: pd.DataFrame):
     """
     disc_cols = ['patient_id', 'age_approx', 'sex', 'anatom_site_general', 'tbp_tile_type',  'tbp_lv_location', 'tbp_lv_location_simple']
-
-    category_encoder = OrdinalEncoder(
-        categories='auto',
-        dtype=int,
-        handle_unknown='use_encoded_value',
-        unknown_value=-2,
-        encoded_missing_value=-1,
-    )
-
-    X_cat = category_encoder.fit_transform(df[disc_cols])
-    for c, cat_col in enumerate(disc_cols):
-        df[cat_col] = X_cat[:, c]
-
-    # Continuous
-    cont_cols = ['clin_size_long_diam_mm', 'tbp_lv_A', 'tbp_lv_Aext', 'tbp_lv_B', 'tbp_lv_Bext',
-        'tbp_lv_C', 'tbp_lv_Cext', 'tbp_lv_H', 'tbp_lv_Hext', 'tbp_lv_L',
-        'tbp_lv_Lext', 'tbp_lv_areaMM2', 'tbp_lv_area_perim_ratio',
-        'tbp_lv_color_std_mean', 'tbp_lv_deltaA', 'tbp_lv_deltaB',
-        'tbp_lv_deltaL', 'tbp_lv_deltaLB', 'tbp_lv_deltaLBnorm',
-        'tbp_lv_eccentricity',
-        'tbp_lv_minorAxisMM', 'tbp_lv_nevi_confidence', 'tbp_lv_norm_border',
-        'tbp_lv_norm_color', 'tbp_lv_perimeterMM',
-        'tbp_lv_radial_color_std_max', 'tbp_lv_stdL', 'tbp_lv_stdLExt',
-        'tbp_lv_symm_2axis', 'tbp_lv_symm_2axis_angle']
     """
 
     """
@@ -202,15 +156,93 @@ def get_meta(train_df: pd.DataFrame, test_df: pd.DataFrame):
     train_df = pd.concat([train_df, dummies.iloc[: train_df.shape[0]]], axis=1)
     test_df = pd.concat([test_df, dummies.iloc[train_df.shape[0] :].reset_index(drop=True)], axis=1)
 
+    # tbp_tile_type
+    con = pd.concat([train_df["tbp_tile_type"], test_df["tbp_tile_type"]], ignore_index=True)
+    dummies = pd.get_dummies(con, dummy_na=True, dtype=np.uint8, prefix="tile_type")
+    train_df = pd.concat([train_df, dummies.iloc[: train_df.shape[0]]], axis=1)
+    test_df = pd.concat([test_df, dummies.iloc[train_df.shape[0] :].reset_index(drop=True)], axis=1)
+
+    # tbp_lv_location
+    con = pd.concat([train_df["tbp_lv_location"], test_df["tbp_lv_location"]], ignore_index=True)
+    dummies = pd.get_dummies(con, dummy_na=True, dtype=np.uint8, prefix="lv_location")
+    train_df = pd.concat([train_df, dummies.iloc[: train_df.shape[0]]], axis=1)
+    test_df = pd.concat([test_df, dummies.iloc[train_df.shape[0] :].reset_index(drop=True)], axis=1)
+
+    # tbp_lv_location_simple
+    con = pd.concat([train_df["tbp_lv_location_simple"], test_df["tbp_lv_location_simple"]], ignore_index=True)
+    dummies = pd.get_dummies(con, dummy_na=True, dtype=np.uint8, prefix="lv_location_simple")
+    train_df = pd.concat([train_df, dummies.iloc[: train_df.shape[0]]], axis=1)
+    test_df = pd.concat([test_df, dummies.iloc[train_df.shape[0] :].reset_index(drop=True)], axis=1)
+
     # n_images per user
     train_df["n_images"] = train_df["patient_id"].map(train_df.groupby(["patient_id"])["isic_id"].count())
     test_df["n_images"] = test_df["patient_id"].map(test_df.groupby(["patient_id"])["isic_id"].count())
     train_df["n_images"] = np.log1p(train_df["n_images"].values)
     test_df["n_images"] = np.log1p(test_df["n_images"].values)
 
-    # image size
+    columns_to_apply = [
+        "clin_size_long_diam_mm",
+        "tbp_lv_areaMM2",
+        "tbp_lv_area_perim_ratio",
+        "tbp_lv_color_std_mean",
+        "tbp_lv_deltaLB",
+        "tbp_lv_deltaLBnorm",
+        "tbp_lv_eccentricity",
+        "tbp_lv_minorAxisMM",
+        "tbp_lv_nevi_confidence",
+        "tbp_lv_norm_border",
+        "tbp_lv_norm_color",
+        "tbp_lv_perimeterMM",
+        "tbp_lv_radial_color_std_max",
+        "tbp_lv_stdL",
+        "tbp_lv_symm_2axis",
+        "tbp_lv_symm_2axis_angle",
+    ]
+    train_df[columns_to_apply] = train_df[columns_to_apply].apply(np.log1p)
+    test_df[columns_to_apply] = test_df[columns_to_apply].apply(np.log1p)
 
-    meta_features = ["sex", "age_approx", "n_images"] + [col for col in train_df.columns if col.startswith("site_")]
+    meta_features = [
+        "age_approx",
+        "sex",
+        "n_images",
+        "clin_size_long_diam_mm",
+        "tbp_lv_A",
+        "tbp_lv_Aext",
+        "tbp_lv_B",
+        "tbp_lv_Bext",
+        "tbp_lv_C",
+        "tbp_lv_Cext",
+        "tbp_lv_H",
+        "tbp_lv_Hext",
+        "tbp_lv_L",
+        "tbp_lv_Lext",
+        "tbp_lv_areaMM2",
+        "tbp_lv_area_perim_ratio",
+        "tbp_lv_color_std_mean",
+        "tbp_lv_deltaA",
+        "tbp_lv_deltaB",
+        "tbp_lv_deltaL",
+        "tbp_lv_deltaLB",
+        "tbp_lv_deltaLBnorm",
+        "tbp_lv_eccentricity",
+        "tbp_lv_minorAxisMM",
+        "tbp_lv_nevi_confidence",
+        "tbp_lv_norm_border",
+        "tbp_lv_norm_color",
+        "tbp_lv_perimeterMM",
+        "tbp_lv_radial_color_std_max",
+        "tbp_lv_stdL",
+        "tbp_lv_stdLExt",
+        "tbp_lv_symm_2axis",
+        "tbp_lv_symm_2axis_angle",
+        "tbp_lv_x",
+        "tbp_lv_y",
+        "tbp_lv_z",
+    ] + [
+        col
+        for col in train_df.columns
+        if col.startswith(("site_", "tile_type_", "lv_location_", "lv_location_simple_"))
+    ]
     n_meta_features = len(meta_features)
 
     return train_df, test_df, meta_features, n_meta_features

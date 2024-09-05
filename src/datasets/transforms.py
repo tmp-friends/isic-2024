@@ -38,9 +38,12 @@ def define_transforms(cfg, is_training: bool = True):
                 A.CLAHE(clip_limit=4.0, p=0.7),
                 A.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, val_shift_limit=10, p=0.5),
                 A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.1, rotate_limit=15, border_mode=0, p=0.85),
-                A.Resize(cfg.img_size, cfg.img_size),
+                A.Resize(cfg.model.params.img_size, cfg.model.params.img_size),
                 CustomCutout(
-                    num_holes=1, max_h_size=int(cfg.img_size * 0.375), max_w_size=int(cfg.img_size * 0.375), p=0.7
+                    num_holes=1,
+                    max_h_size=int(cfg.model.params.img_size * 0.375),
+                    max_w_size=int(cfg.model.params.img_size * 0.375),
+                    p=0.7,
                 ),
                 # Microscope(p=0.5),
                 A.Normalize(),
@@ -49,7 +52,7 @@ def define_transforms(cfg, is_training: bool = True):
         ),
         "valid": A.Compose(
             [
-                A.Resize(cfg.img_size, cfg.img_size),
+                A.Resize(cfg.model.params.img_size, cfg.model.params.img_size),
                 A.Normalize(),
                 ToTensorV2(),
             ],

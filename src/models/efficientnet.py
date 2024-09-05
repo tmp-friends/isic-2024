@@ -30,7 +30,7 @@ class EfficientNet(nn.Module):
         pretrained=False,
         checkpoint_path=None,
         n_meta_features=0,
-        n_meta_dim=[512, 128],
+        n_meta_dim=[256, 32],
         num_classes=1,
     ):
         super().__init__()
@@ -75,5 +75,6 @@ class EfficientNet(nn.Module):
                 out += self.linear(dropout(x))
 
         out /= len(self.dropouts)
+        out = self.sigmoid(out)
 
-        return self.sigmoid(out)
+        return out

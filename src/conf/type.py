@@ -37,7 +37,6 @@ class TrainPseudoConfig:
     dir: DirConfig
     model: ModelConfig
     n_epochs: int
-    img_size: int
     train_batch_size: int
     valid_batch_size: int
     scheduler: str
@@ -55,5 +54,4 @@ class InferConfig:
     dir: DirConfig
     model: ModelConfig
     best_model_bin: str
-    img_size: int
     valid_batch_size: int

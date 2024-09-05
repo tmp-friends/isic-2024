@@ -7,7 +7,7 @@ import timm
 from models.functions import SwishModule
 
 
-class Net(nn.Module):
+class EVA02(nn.Module):
     def __init__(
         self,
         model_name,
@@ -21,8 +21,7 @@ class Net(nn.Module):
         self.model = timm.create_model(model_name, pretrained=pretrained, checkpoint_path=checkpoint_path)
 
         self.n_meta_features = n_meta_features
-        in_features = self.model.get_classifier().in_features
-
+        in_features = self.model.head.in_features
         if n_meta_features > 0:
             self.meta = nn.Sequential(
                 nn.Linear(n_meta_features, n_meta_dim[0]),
@@ -37,8 +36,7 @@ class Net(nn.Module):
         self.linear = nn.Linear(in_features, num_classes)
         self.dropouts = nn.ModuleList([nn.Dropout(0.5) for _ in range(5)])
         self.sigmoid = nn.Sigmoid()
-
-        self.model.reset_classifier(0)  # Remove the original classifier
+        self.model.head = nn.Identity()
 
     def extract(self, x):
         return self.model(x)
@@ -49,11 +47,7 @@ class Net(nn.Module):
             x: images
             x_meta: metadata
         """
-        # swin
-        x = self.extract(x)
-
-        # average poolingを適用して特徴をバッチサイズ x 特徴量数に変換
-        # x = torch.mean(x, dim=[2, 3])  # 平均値をとることで2次元の特徴量にする
+        x = self.extract(x).squeeze(-1).squeeze(-1)
 
         if self.n_meta_features > 0:
             x_meta = self.meta(x_meta)

@@ -50,7 +50,7 @@ def get_sampler(df: pd.DataFrame):
 def prepare_loaders(
     cfg: TrainConfig,
     df: pd.DataFrame,
-    meta_features: list,
+    meta_features: list = None,
     sampler=None,
 ) -> tuple[DataLoader, DataLoader]:
     train_df = df[df.kfold != cfg.fold].reset_index(drop=True)
@@ -75,7 +75,7 @@ def prepare_loaders(
         train_dataset,
         batch_size=cfg.train_batch_size,
         num_workers=4,
-        # sampler=sampler,
+        sampler=sampler,
         shuffle=True,
         pin_memory=True,
         drop_last=True,
@@ -294,9 +294,15 @@ def main(cfg: TrainConfig):
     for fold, (_, val_) in enumerate(sgkf.split(train_df, train_df["target"], train_df["patient_id"])):
         train_df.loc[val_, "kfold"] = int(fold)
 
+    # sampler = get_sampler(df=train_df)
+
     # Create dataloader
-    # sampler = get_sampler(df=df)
-    train_loader, valid_loader = prepare_loaders(cfg=cfg, df=train_df, meta_features=meta_features)
+    train_loader, valid_loader = prepare_loaders(
+        cfg=cfg,
+        df=train_df,
+        meta_features=meta_features,
+        # sampler=sampler,
+    )
 
     # Def model
     model = get_model(cfg=cfg.model, is_pretrained=True, n_meta_features=n_meta_features)
