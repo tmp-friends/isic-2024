@@ -1,4 +1,4 @@
-## Doc
+## exp
 
 TODO
 - 過去コンペデータの利用
@@ -59,7 +59,7 @@ TODO
     - ISIC archiveには重複があるそうなので、除去する
       - https://www.kaggle.com/competitions/siim-isic-melanoma-classification/discussion/161943
 
-#### Backborn
+#### Model
 
 - effnet_b0を使った手法を実装&sub
   - AUROC: 0.5177, LB: 0.132
@@ -95,6 +95,56 @@ TODO
 
 - swin_largeの実装&sub
   - pos:neg調整があったほうがLB良い
+
+- Dropout追加
+  - CV: 0.1679 (0.1707から下がった)
+
+- metadata追加
+  - age, sex, anatom_site_general, n_images
+  - CV: 0.1646
+  - Datasetのposneg調整をやめる？
+    - 代わりにWeightedRandomSampler
+
+- Datasetのposneg調整をやめる
+  - CV: 0.1575
+  - trainにoverfitしてそう
+
+- Datasetのposneg調整をやめる+WeightedRandomSampler
+  - WeightedRandomSamplerでエラーが出る
+
+- metadata追加(すべて)
+  - 1:20・Datasetのposnegなし
+    - CV: 0.1565
+  - 1:20・Datasetのposnegあり
+    - CV: 0.1603, LB: 0.155
+  - categorical featuresが含まれていなかったので修正
+    - CV: 0.1584
+  - n_meta_dims [512, 32] (もとは[512, 128])
+    - CV: 0.1640
+  - n_meta_dims [256, 64]
+    - CV: 0.1578
+  - n_meta_dims [256, 32]
+    - CV: 0.1643, LB: 0.155
+  - n_meta_dims [256, 16]
+    - CV: 0.1634
+  - n_meta_dims [128, 32]
+    - CV: 0.1585
+  - n_meta_dims [64, 16]
+    - CV: 0.1605
+
+- EVA02
+  - CV: 0.1481, LB: 0.144
+
+- SwinTransformer Large
+  - CV: 0.1560
+  - Datasetのposnegなし CV: 0.1573, LB: 0.
+
+- ViT Base
+  - CV: 0.1557
+  - Datasetのposnegなし CV: 0.1536, LB:
+    - Datasetのposnegない方がlossが安定して下がるので、良いのでは...?
+    - CVも信じられない...
+
 
 ### GBDT
 

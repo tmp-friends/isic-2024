@@ -1,5 +1,18 @@
 ## Survey
 
+- Removing one feature increased my CV by 0.002
+  - https://www.kaggle.com/competitions/isic-2024-challenge/discussion/532024
+  - ある特徴量を削除したら、CVが0.002向上したらしい
+  - commentで、mel_thick_mmをTargetにモデルを学習させる、といったものがあって良さそうに思えた
+
+- Top Solutions Ensemble - [0.947]
+  - https://www.kaggle.com/code/cdeotte/top-solutions-ensemble-0-947/notebook
+  - np.stackでのensemble手法
+
+- Some pointers from the dataset's official paper to follow through
+  - https://www.kaggle.com/competitions/isic-2024-challenge/discussion/531115
+  - 公式のdataset論文の要約
+
 - Infer from only images with balanced mixup
   - https://www.kaggle.com/code/yoshikuwano/infer-from-only-images-with-balanced-mixup
   - LB: 0.152
@@ -27,6 +40,7 @@
   - > Am using Convnext pico, with adaptive pooling, cross entropy (2 outputs, rather than 1), heavy augmentations, Cosine Annealing, single fold, LB: 0.161
   - Convnext使う?
   - cross entropy (2 outputs, rather than 1)は過去コンペで分類数を2->3へ増やしたらスコアが出た(2nd)らしいので筋が良さそう
+  - MixUp試してないかも
 
 - ISIC-2024 Pytorch Training Baseline (Swin) (ViT)
   - https://www.kaggle.com/code/qiaoyingzhang/isic-2024-pytorch-training-baseline-swin
@@ -208,6 +222,11 @@
 - Nelder-Mead method
   - アンサンブルでよく用いられる
   - 最適化手法
+
+- 21st Public - 53rd Private - Trust Your CV
+  - https://www.kaggle.com/competitions/siim-isic-melanoma-classification/discussion/175344
+  - chrisさんの解法
+  - 同じ画像を複数回RandomCropしてUpSampling
 
 ### PetFinderコンペ
 
