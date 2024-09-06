@@ -188,8 +188,25 @@ TODO
 - BaselineとしていたGBDT notebookを画像モデルのpreds抜きでどの程度スコアが出るかを見る
   - CV: lgb 0.15648, cat 0.16157
   - LB: 0.166
+  - -> 画像モデルでleakしていた
 
-- 公開notebook(LB: 0.184)の変更を取り入れる
-- AutoNN
-  - 画像特徴量はなしで進める
 
+- v2
+  - 画像特徴量なし
+    - CV: 0.17116
+  - drop least importance feature
+    - CV: 0.1727
+  - 画像特徴量(swin)
+    - CV: 0.1754
+  - 画像特徴量(swin+effnet_b1)
+    - CV: 0.1779
+  - lgb 0.4, cat 0.31, xgb 0.29
+    - CV: 0.1780
+  - 画像特徴量(swin+effnet_b1+vit)
+    - CV: 0.1790
+
+ {'lambda_l1': 0.0037200312454027593, 'lambda_l2': 0.07774524471439682, 'learning_rate': 0.020681103374609842, 'max_depth': 8, 'num_leaves': 168, 'colsample_bytree': 0.8102751103817165, 'colsample_bynode': 0.6306373875391336, 'bagging_fraction': 0.5333011811354251, 'bagging_freq': 5, 'min_data_in_leaf': 45, 'scale_pos_weight': 3.9189936048805545}.
+
+- v3
+  - CV: 0.17075(SCORING), LB: 0.184
+    - 画像特徴量ある割には低い
