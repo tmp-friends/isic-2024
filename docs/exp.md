@@ -134,16 +134,23 @@ TODO
 
 - EVA02
   - CV: 0.1481, LB: 0.144
+  - Datasetのposnegなし CV: 0.1477, LB: 0.144
 
 - SwinTransformer Large
   - CV: 0.1560
-  - Datasetのposnegなし CV: 0.1573, LB: 0.
+  - Datasetのposnegなし CV: 0.1573, LB: 0.161
 
 - ViT Base
   - CV: 0.1557
-  - Datasetのposnegなし CV: 0.1536, LB:
+  - Datasetのposnegなし CV: 0.1536, LB: 0.158
     - Datasetのposnegない方がlossが安定して下がるので、良いのでは...?
     - CVも信じられない...
+
+- ConvNeXt XLarge
+  - CV: 0.1582, LB: 0.154
+
+- CoAtNet
+  - うまいこと学習が進まなかった
 
 
 ### GBDT
