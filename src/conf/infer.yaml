@@ -13,4 +13,4 @@ defaults:
 
 n_folds: 5
 model_dir: "dummy" # 引数から指定
-valid_batch_size: 1024
+valid_batch_size: 256
