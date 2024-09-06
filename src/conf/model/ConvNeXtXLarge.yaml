@@ -1,0 +1,4 @@
+name: ConvNeXtXLarge
+params:
+  model_name: "convnext_xlarge.fb_in22k"
+  img_size: 224

@@ -254,12 +254,12 @@ def load_data(cfg: TrainConfig):
 
     train_df, test_df, meta_features, n_meta_features = get_meta(train_df, test_df)
 
-    pos_train_df = train_df[train_df["target"] == 1].reset_index(drop=True)
-    neg_train_df = train_df[train_df["target"] == 0].reset_index(drop=True)
+    # pos_train_df = train_df[train_df["target"] == 1].reset_index(drop=True)
+    # neg_train_df = train_df[train_df["target"] == 0].reset_index(drop=True)
 
     # positive:negative=1:20になるようDown sampling
     # positiveが少ない不均衡データなので学習がうまくいくようにする意図
-    train_df = pd.concat([pos_train_df, neg_train_df.iloc[: pos_train_df.shape[0] * 20, :]]).reset_index(drop=True)
+    # train_df = pd.concat([pos_train_df, neg_train_df.iloc[: pos_train_df.shape[0] * 20, :]]).reset_index(drop=True)
 
     # # 2020 data (external data)
     # train_df_ext1 = pd.read_csv(cfg.dir.train_meta_csv_2020)
@@ -281,3 +281,58 @@ def load_data(cfg: TrainConfig):
     # train_df["target"] = train_df["benign_malignant"].map(diagnosis2idx)
 
     return train_df, test_df, meta_features, n_meta_features
+
+
+def balance_train_set(df: pd.DataFrame):
+    """ref: https://www.kaggle.com/competitions/isic-2024-challenge/discussion/529457"""
+    # all positives are kept
+    # all biopsied (have iddx_2) negatives are kept
+
+    # keep 15% of negatives without lesion_id assigned
+    no_id_negative_keep_frac = 0.15
+
+    # keep 30% of negatives with lesion_id
+    lesion_id_negative_keep_frac = 0.3
+
+    # upsample factor for positives
+    positive_upsample_multiple = 20
+
+    # slight positive scores for special negatives
+    id_assigned_negative_score = 0.02
+    biopsied_negative_score = 0.1
+    biopsied_indeterminate_score = 0.2
+
+    # Keep small part of Negatives with no lesion_id
+    df_target_0_no_id = df[(df["target"] == 0) & (df["lesion_id"].isna())].sample(
+        frac=no_id_negative_keep_frac, random_state=42
+    )
+
+    # Keep a small part of Negatives with lesion_id, not biopsied
+    df_target_0_with_id = df[(df["target"] == 0) & (df["lesion_id"].notna()) & (df["iddx_2"].isna())].sample(
+        frac=lesion_id_negative_keep_frac, random_state=42
+    )
+
+    df_target_0_biopsied_indt = df[(df["target"] == 0) & (df["iddx_2"].notna()) & (df["iddx_1"] != "Indeterminate")]
+
+    df_target_0_biopsied_neg = df[(df["target"] == 0) & (df["iddx_2"].notna()) & (df["iddx_1"] == "Indeterminate")]
+
+    df_target_0_with_id = df_target_0_with_id.assign(target=id_assigned_negative_score)
+    df_target_0_biopsied_neg = df_target_0_biopsied_neg.assign(target=biopsied_negative_score)
+    df_target_0_biopsied_indt = df_target_0_biopsied_indt.assign(target=biopsied_indeterminate_score)
+
+    # Keep all positives
+    df_target_1 = df[df["target"] == 1]
+
+    # Add upsampling for positive cases
+    df_target_1_upsampled = pd.concat([df_target_1] * positive_upsample_multiple, ignore_index=True)
+
+    # Combine all subsets
+    return pd.concat(
+        [
+            df_target_0_no_id,
+            df_target_0_with_id,
+            df_target_0_biopsied_neg,
+            df_target_0_biopsied_indt,
+            df_target_1_upsampled,
+        ]
+    ).reset_index(drop=True)

@@ -53,5 +53,5 @@ class TrainPseudoConfig:
 class InferConfig:
     dir: DirConfig
     model: ModelConfig
-    best_model_bin: str
+    model_dir: str
     valid_batch_size: int

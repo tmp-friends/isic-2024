@@ -11,8 +11,7 @@ defaults:
   - dir: dir
   - model: EfficientNetB1
 
-# n_epochs: 75
-n_epochs: 50
+n_epochs: 3
 train_batch_size: 32
 valid_batch_size: 128
 scheduler: "CosineAnnealingLR"
