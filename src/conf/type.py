@@ -52,6 +52,7 @@ class TrainPseudoConfig:
 @dataclass
 class InferConfig:
     dir: DirConfig
+    n_folds: int
     model: ModelConfig
     model_dir: str
     valid_batch_size: int

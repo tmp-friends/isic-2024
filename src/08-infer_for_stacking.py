@@ -51,7 +51,7 @@ def prepare_loaders(cfg: InferConfig, df: pd.DataFrame, meta_features=None) -> D
     return test_loader
 
 
-def load_models(cfg: InferConfig):
+def load_models(cfg: InferConfig, n_meta_features: list):
     models = []
     # ファイル名のパターン定義
     pattern = "fold(\d+)_pAUC([\d\.]+)_Loss([\d\.]+)_epoch(\d+).bin"
@@ -67,10 +67,13 @@ def load_models(cfg: InferConfig):
                 fold_number, pAUC, loss, epoch = match.groups()
                 # フォールド番号が現在のフォールドと一致するかチェック
                 if int(fold_number) == fold:
-                    print(f"Loading model for fold {fold}: pAUC={pAUC}, Loss={loss}, Epoch={epoch}")
-                    model_path = os.path.join(model_directory, file)
+                    LOGGER.info(f"Loading model file: {file}")
+
+                    model_path = os.path.join(cfg.model_dir, file)
                     model = get_model(cfg=cfg.model, is_pretrained=False, n_meta_features=n_meta_features)
                     model.load_state_dict(torch.load(model_path, map_location=device))
+                    model.to(device)
+                    model.eval()
                     models.append(model)
                     break
         else:
@@ -80,18 +83,16 @@ def load_models(cfg: InferConfig):
 
 
 @torch.inference_mode()
-def run_ensemble_inference(model: nn.Module, dataloader: DataLoader) -> np.ndarray:
-    model.eval()
-
+def run_ensemble_inference(models: list[nn.Module], dataloader: DataLoader) -> np.ndarray:
     preds = []
-    bar = tqdm(enumerate(dataloader), total=len(dataloader))
-    for step, data in bar:
+    for data in dataloader:
         x = data["image"].to(device, dtype=torch.float)
         x_meta = data["meta"].to(device, dtype=torch.float)
 
         batch_size = x.size(0)
 
-        outputs = model(x, x_meta)
+        outputs = torch.stack([model(x, x_meta).squeeze() for model in models]).mean(dim=0)
+
         preds.append(outputs.detach().cpu().numpy())
 
     return np.concatenate(preds).flatten()
@@ -111,7 +112,7 @@ def main(cfg: InferConfig):
     test_loader = prepare_loaders(cfg=cfg, df=test_df, meta_features=meta_features)
 
     # Def model
-    models = load_models()
+    models = load_models(cfg, n_meta_features)
 
     # Infer
     preds = run_ensemble_inference(models=models, dataloader=test_loader)

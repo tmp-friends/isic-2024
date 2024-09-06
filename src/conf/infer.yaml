@@ -11,5 +11,6 @@ defaults:
   - dir: dir
   - model: EfficientNetB1
 
+n_folds: 5
 model_dir: "dummy" # 引数から指定
-valid_batch_size: 128
+valid_batch_size: 1024
